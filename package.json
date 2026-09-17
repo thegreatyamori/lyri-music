@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "check:no-lyrics": "node scripts/check-no-lyrics.mjs",
     "preview:pip": "node scripts/preview-pip.mjs",
+    "shots": "node scripts/shots.mjs",
     "verify": "pnpm run check:no-lyrics && pnpm run typecheck && pnpm run test && pnpm run build",
     "package": "pnpm run verify && node scripts/package.mjs"
   },

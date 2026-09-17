@@ -1,91 +1,50 @@
 #!/usr/bin/env node
 /**
- * Opens the PiP window's styling in a browser, without building or reloading the
- * extension.
+ * Opens the pop-out window's styling in a browser, without building or reloading
+ * the extension.
  *
  * Tuning this window is a visual loop, and going through `pnpm build` and a
  * reload of the extension for every change to a font size is a bad one. This
- * renders the real `tokens.css` and `panel.css` against the same markup the PiP
+ * renders the real `tokens.css` and `panel.css` against the same markup the pop-out
  * window builds, at the size the window is actually opened at, in a scratch
  * directory — nothing here is part of the extension and nothing reaches `dist/`.
  *
- * The lyrics are invented, deliberately: this is a styling harness, and the
- * repository must not contain real ones.
- *
- * The markup below MUST mirror what the app renders — the backdrop, the controls
- * and the lyric list as DIRECT children of `body.lyrimusic-pip`, with no wrapper.
- * This harness has already lied once by writing a structure the app did not use:
- * it showed a scrolling lyric list while the real window wrapped the list in a
- * div, which cost it the height it needed to scroll at all. See
- * `src/content/pip-window.ts` before changing what goes inside `body`.
+ * The markup comes from `lib/scenes.mjs`, which the screenshot capture uses too,
+ * so the thing you tune and the picture in the README cannot disagree.
  *
  *   node scripts/preview-pip.mjs [--no-open] [--plain]
  *
  * `--plain` renders the untimed case: no current line and no progress mark. It is
  * the case that used to pin itself to the bottom of the song, so it is worth
- * being able to look at without a build. (The PiP window carries no footer, so
- * the "text only" note that the in-page panel shows has nowhere to appear here.)
+ * being able to look at without a build. (The pop-out carries no footer, so the
+ * "text only" note that the in-page panel shows has nowhere to appear here.)
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { pipMarkup, stylesheets } from './lib/scenes.mjs';
 
-const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const OUT = join(tmpdir(), 'lyri-pip-preview');
 
-/** The size the panel asks for in `openPip`. */
+/** The size `openPipShell` asks for. */
 const WIDTH = 360;
 const HEIGHT = 520;
 
-/** Nonsense on purpose. */
-const LINES = [
-  'zorblat',
-  'the wibbles are here',
-  'quenk',
-  'flimbo and gromble',
-  'nax',
-  'blorp skree',
-  'tum tak',
-  'glim',
-  'the wibbles again',
-  'snerp',
-  'worf',
-  'klimbo',
-  'zab',
-  'the long invented line that wraps, to show how a two line entry stays centred',
-  'quenk reprise',
-  'flimbo',
-  'nax nax',
-  'blorp',
-  'skree',
-  'tum',
-  'tak',
-];
-
-/** Chosen so the line is in the middle of the visible window. */
-const CURRENT = 13;
-const PROGRESS = 0.42;
-
 const plain = process.argv.includes('--plain');
-const tokens = readFileSync(join(ROOT, 'src/styles/tokens.css'), 'utf8');
-const panel = readFileSync(join(ROOT, 'src/styles/panel.css'), 'utf8');
+const { tokens, panel } = stylesheets();
 
-const lines = LINES.map((text, index) => {
-  const current = !plain && index === CURRENT;
-  const className = current
-    ? 'lyrimusic__line is-current'
-    : plain
-      ? 'lyrimusic__line is-plain'
-      : 'lyrimusic__line';
-  const style = current ? ` style="--lyri-progress:${PROGRESS}"` : '';
-  return `      <p class="${className}" data-line="${index}"${style}>${text}</p>`;
-}).join('\n');
+const script =
+  plain || process.argv.includes('--no-scroll')
+    ? ''
+    : `<script>document.querySelector('.lyrimusic__line.is-current')?.scrollIntoView({ block: 'center' });</script>`;
 
 mkdirSync(OUT, { recursive: true });
 
+// The three blocks go straight into the body, with nothing wrapping them: `body`
+// is the flex column that gives the lyric list its height, and its height is what
+// makes it scroll. See `src/content/pip-window.ts`.
 writeFileSync(
   join(OUT, 'inner.html'),
   `<!doctype html>
@@ -95,24 +54,8 @@ ${tokens}
 ${panel}
   </style></head>
   <body class="lyrimusic-pip">
-    <div class="lyrimusic-pip__backdrop" aria-hidden="true">
-      <span></span>
-      <span></span>
-      <span></span>
-      <span></span>
-      <span class="sweep"></span>
-    </div>
-    <div class="lyrimusic-pip__controls">
-      <button class="lyrimusic__icon-button" type="button" title="Ask the sources again" aria-label="Ask the sources again">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M20.5 12a8.5 8.5 0 1 1-2.6-6.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
-          <path d="M20.5 3.5v5h-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
-      </button>
-    </div>
-    <div class="lyrimusic__lyrics">
-${lines}
-    </div>
+${pipMarkup({ plain })}
+${script}
   </body>
 </html>
 `,
@@ -122,7 +65,7 @@ writeFileSync(
   join(OUT, 'index.html'),
   `<!doctype html>
 <html>
-  <head><meta charset="utf-8" /><title>LyriMusic — PiP preview</title><style>
+  <head><meta charset="utf-8" /><title>LyriMusic — pop-out preview</title><style>
     html, body { background: #151318; margin: 0; }
     body {
       display: flex; gap: 30px; align-items: center; justify-content: center;
@@ -135,7 +78,7 @@ writeFileSync(
       box-shadow: 0 18px 50px rgb(0 0 0 / 55%);
     }
     iframe { width: ${WIDTH}px; height: ${HEIGHT}px; border: 0; display: block; }
-    .note { max-width: 270px; }
+    .note { max-width: 280px; }
     .note h1 { font-size: 14px; margin: 0 0 10px; color: #e9e1ea; }
     .note p { margin: 0 0 10px; }
     code { color: #d0bcff; }
@@ -143,10 +86,11 @@ writeFileSync(
   <body>
     <div class="frame"><iframe src="inner.html"></iframe></div>
     <div class="note">
-      <h1>PiP preview</h1>
+      <h1>Pop-out preview${plain ? ' — untimed' : ''}</h1>
       <p>The real <code>tokens.css</code> and <code>panel.css</code>, at ${WIDTH}×${HEIGHT} — the size
       the window is actually opened at.</p>
       <p>Invented lyrics. Styling only.</p>
+      <p><code>pnpm shots</code> captures these into <code>docs/images/</code>.</p>
     </div>
   </body>
 </html>
@@ -157,7 +101,8 @@ const indexPath = join(OUT, 'index.html');
 console.log(`wrote ${indexPath}`);
 
 if (!process.argv.includes('--no-open')) {
-  const opener = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
+  const opener =
+    process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
   try {
     execFileSync(opener, [indexPath], { stdio: 'inherit' });
   } catch {

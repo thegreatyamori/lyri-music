@@ -9,6 +9,12 @@ proxies nothing, and ships no words that belong to anyone else.
 
 **Not affiliated with Google, YouTube, or YouTube Music.**
 
+<p align="center">
+  <img src="docs/images/panel.png" width="720" alt="The lyrics panel in the bottom-right corner of a page. The current line is highlighted with a progress mark beneath it, above a footer reading 'Lyrics in sync' with controls to nudge the timing.">
+</p>
+
+<p align="center"><sub>The panel, with the current line lit and its progress marked underneath. The words are placeholders — this repository carries no real lyrics, and neither does the picture.</sub></p>
+
 ## Install
 
 1. **[Download the latest release](https://github.com/thegreatyamori/lyri-music/releases/latest)** and unzip it somewhere permanent — the browser reads the files where they sit, so moving them later breaks the install.
@@ -49,6 +55,12 @@ lyrics live in the page.
 | Asking the sources again | the refresh button, in the panel header and in the pop-out |
 | A window you can park anywhere | the pop-out button, then drag it |
 
+<p align="center">
+  <img src="docs/images/pip.png" width="250" alt="The pop-out window: centred lyrics at a readable size, over a dark gradient that drifts slowly through colour.">
+</p>
+
+<p align="center"><sub>The pop-out. It lives on top of everything, so it can sit beside whatever you are actually doing.</sub></p>
+
 ## Sources
 
 | Source | Timing | Default | Access |
@@ -76,6 +88,7 @@ pnpm test         # vitest
 pnpm verify       # no-lyrics check → typecheck → tests → both builds
 pnpm package      # verify + a release zip in the project root
 pnpm preview:pip  # the pop-out window's styling, in a browser, no build needed
+pnpm shots        # re-capture the images above into docs/images/
 ```
 
 Two Vite builds are needed because Manifest V3 content scripts are not ES

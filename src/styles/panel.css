@@ -452,7 +452,10 @@ body.lyrimusic-pip {
   z-index: 2;
   display: flex;
   gap: 4px;
-  opacity: 0.4;
+  /* Recessive, not hidden. 0.4 turned out to be below the threshold where anyone
+     notices there is a control there at all; this is the faintest that still
+     reads as one. */
+  opacity: 0.55;
   transition: opacity var(--lyri-motion);
 }
 
