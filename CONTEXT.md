@@ -105,3 +105,10 @@ pnpm test        # vitest, node environment
 Word-level (syllable) timing, Genius, Musixmatch, reusing YouTube's own lyrics
 endpoint, UI translations, any server-side component, publishing to the Chrome
 Web Store.
+
+**Genius is already written, on the `genius` branch.** `lib/html-text.ts` and
+`lib/providers/genius.ts` were implemented and tested there and deliberately kept
+out of `main`. Do not re-implement them: check that branch first. Bringing it in
+is a merge plus two edits, listed at the top of `genius.ts` — adding the provider
+to the registry AND adding `genius.com` to the manifest's `host_permissions`.
+Both are required, or it appears in the settings list having never worked.

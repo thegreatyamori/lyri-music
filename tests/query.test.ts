@@ -3,6 +3,7 @@ import {
   artistForLyricsSearch,
   forLyricsSearch,
   splitArtistPrefix,
+  titleVariants,
 } from '../src/lib/query';
 
 describe('splitArtistPrefix', () => {
@@ -90,5 +91,53 @@ describe('artistForLyricsSearch', () => {
     expect(artistForLyricsSearch('VEVO')).toBe('VEVO');
     expect(artistForLyricsSearch('The Wibbles VEVO')).toBe('The Wibbles VEVO');
     expect(artistForLyricsSearch('  Gromble   -   Topic  ')).toBe('Gromble');
+  });
+});
+
+describe('titleVariants', () => {
+  it('always starts with the title exactly as given', () => {
+    expect(titleVariants('Gromble Song')[0]).toBe('Gromble Song');
+    expect(titleVariants('Gromble Song (Remastered)')[0]).toBe('Gromble Song (Remastered)');
+  });
+
+  it('loses a trailing bracketed qualifier', () => {
+    expect(titleVariants('Gromble Song (Remastered 2011)')).toContain('Gromble Song');
+    expect(titleVariants('Gromble Song [Live at Home]')).toContain('Gromble Song');
+  });
+
+  it('loses a trailing dash clause', () => {
+    expect(titleVariants('Gromble Song - Remastered 2011')).toContain('Gromble Song');
+  });
+
+  it('loses a featured credit whether bracketed or inline', () => {
+    expect(titleVariants('Gromble Song (feat. Nax)')).toContain('Gromble Song');
+    expect(titleVariants('Gromble Song feat. Nax')).toContain('Gromble Song');
+    expect(titleVariants('Gromble Song ft. Nax')).toContain('Gromble Song');
+  });
+
+  it('peels several qualifiers down to the bare title', () => {
+    const variants = titleVariants('Gromble Song (Remastered 2011) [Live] feat. Nax');
+    expect(variants[variants.length - 1]).toBe('Gromble Song');
+  });
+
+  it('does not mutilate a title that has nothing to strip', () => {
+    expect(titleVariants('Quenk')).toEqual(['Quenk']);
+  });
+
+  it('keeps the original when a strip would empty the title', () => {
+    expect(titleVariants('(Zorblat)')).toEqual(['(Zorblat)']);
+  });
+
+  it('never returns duplicates, and never returns an empty list for real input', () => {
+    for (const title of ['Quenk', 'Gromble (Live)', 'The Wibbles - Blorp']) {
+      const variants = titleVariants(title);
+      expect(variants.length).toBeGreaterThan(0);
+      expect(new Set(variants).size).toBe(variants.length);
+    }
+  });
+
+  it('returns nothing for empty input', () => {
+    expect(titleVariants('')).toEqual([]);
+    expect(titleVariants('   ')).toEqual([]);
   });
 });
