@@ -1,0 +1,40 @@
+{
+  "manifest_version": 3,
+  "name": "LyriMusic",
+  "version": "0.1.0",
+  "description": "Lyrics for YouTube Music from public community databases. Not affiliated with YouTube or Google.",
+  "action": {
+    "default_title": "LyriMusic",
+    "default_popup": "popup/index.html",
+    "default_icon": {
+      "16": "icons/16.png",
+      "32": "icons/32.png",
+      "48": "icons/48.png",
+      "128": "icons/128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/16.png",
+    "32": "icons/32.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  },
+  "background": {
+    "service_worker": "worker.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://music.youtube.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://lrclib.net/*",
+    "https://api.lyrics.ovh/*",
+    "https://lyrics.kugou.com/*",
+    "https://music.163.com/*"
+  ]
+}

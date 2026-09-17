@@ -4,6 +4,11 @@ import type { Lyrics, TrackMetadata } from '../lib/domain/types';
 import { createLyricClock, type LyricClock } from '../lib/lyric-clock';
 import type { SourceId } from '../lib/domain/types';
 import { createNowPlaying } from './now-playing';
+import {
+  onPanelVisibleChange,
+  readPanelVisible,
+  writePanelVisible,
+} from '../lib/panel-visibility';
 import tokensCss from '../styles/tokens.css?inline';
 import panelCss from '../styles/panel.css?inline';
 
@@ -27,7 +32,9 @@ export function Overlay() {
   const [index, setIndex] = createSignal(-1);
   const [fraction, setFraction] = createSignal(0);
   const [offsetMs, setOffsetMs] = createSignal(0);
-  const [hidden, setHidden] = createSignal(false);
+  // The popup owns this setting, so hiding from here and showing from there are
+  // the same state, and neither can leave the other stranded.
+  const [panelVisible, setPanelVisible] = createSignal(true);
   const [pipOpen, setPipOpen] = createSignal(false);
 
   const nowPlaying = createNowPlaying();
@@ -83,6 +90,12 @@ export function Overlay() {
     onCleanup(unsubscribe);
   });
 
+  onMount(() => {
+    void readPanelVisible().then(setPanelVisible);
+    const stopWatching = onPanelVisibleChange(setPanelVisible);
+    onCleanup(stopWatching);
+  });
+
   // The clock is driven from the animation frame rather than from the player's
   // events: YouTube Music does not emit one per frame, and the panel needs to
   // move between the events it does emit.
@@ -131,7 +144,7 @@ export function Overlay() {
   }
 
   return (
-    <Show when={!hidden()}>
+    <Show when={panelVisible()}>
       <section class="lyrimusic" aria-label="Lyrics">
         <header class="lyrimusic__header">
           <div class="lyrimusic__heading">
@@ -158,8 +171,8 @@ export function Overlay() {
           <button
             class="lyrimusic__icon-button"
             type="button"
-            title="Hide"
-            onClick={() => setHidden(true)}
+            title="Hide — bring it back from the toolbar icon"
+            onClick={() => void writePanelVisible(false)}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M6 12h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />

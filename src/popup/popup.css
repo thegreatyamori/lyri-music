@@ -18,6 +18,33 @@ body {
   font-weight: 650;
 }
 
+.popup__panel-toggle {
+  display: flex;
+  gap: 10px;
+  margin: 10px 0 16px;
+  padding: 11px;
+  border-radius: var(--lyri-radius-sm);
+  background: var(--lyri-primary-container);
+  color: var(--lyri-on-primary-container);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.popup__panel-toggle input {
+  margin: 1px 0 0;
+  accent-color: var(--lyri-primary);
+}
+
+.popup__panel-hint {
+  display: block;
+  margin-top: 3px;
+  font-size: 10.5px;
+  font-weight: 400;
+  opacity: 0.8;
+}
+
 .popup__lead {
   margin: 2px 0 12px;
   font-size: 11px;

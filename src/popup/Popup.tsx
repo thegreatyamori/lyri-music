@@ -1,5 +1,6 @@
 import { For, Show, createSignal, onMount } from 'solid-js';
 import type { SourceId } from '../lib/domain/types';
+import { readPanelVisible, writePanelVisible } from '../lib/panel-visibility';
 import { PROVIDERS, defaultProviders } from '../lib/providers';
 
 /**
@@ -16,8 +17,11 @@ export function Popup() {
     defaultProviders().map((provider) => provider.id),
   );
   const [loaded, setLoaded] = createSignal(false);
+  const [panelVisible, setPanelVisible] = createSignal(true);
 
   onMount(() => {
+    void readPanelVisible().then(setPanelVisible);
+
     void chrome.runtime
       .sendMessage({ type: 'settings/get' })
       .then((response: unknown) => {
@@ -27,6 +31,12 @@ export function Popup() {
       .catch(() => undefined)
       .finally(() => setLoaded(true));
   });
+
+  async function togglePanel(): Promise<void> {
+    const next = !panelVisible();
+    setPanelVisible(next);
+    await writePanelVisible(next);
+  }
 
   async function toggle(id: SourceId): Promise<void> {
     const next = enabled().includes(id)
@@ -39,6 +49,18 @@ export function Popup() {
   return (
     <main class="popup">
       <h1 class="popup__title">LyriMusic</h1>
+
+      <label class="popup__panel-toggle">
+        <input type="checkbox" checked={panelVisible()} onChange={() => void togglePanel()} />
+        <span>
+          Show the lyrics panel
+          <span class="popup__panel-hint">
+            It lives inside the YouTube Music tab, bottom-right. Reload that tab after changing
+            this.
+          </span>
+        </span>
+      </label>
+
       <p class="popup__lead">Sources this extension may ask for lyrics.</p>
 
       <ul class="popup__sources">
@@ -69,6 +91,8 @@ export function Popup() {
 
       <p class="popup__note">
         Nothing is sent anywhere except these services, and only for the track you are playing.
+        If the panel is missing, reload the YouTube Music tab and check its console for{' '}
+        <code>[LyriMusic] panel mounted</code>.
       </p>
     </main>
   );

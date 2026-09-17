@@ -26,6 +26,11 @@ function mount(): void {
   document.documentElement.append(host);
 
   render(() => <Overlay />, root);
+
+  // One line, so that "the panel is not there" can be told apart from "the
+  // panel is there and found nothing" without reading the source. If this does
+  // not appear in the tab's console, the content script never ran.
+  console.info('[LyriMusic] panel mounted');
 }
 
 mount();
