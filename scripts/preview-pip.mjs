@@ -12,7 +12,12 @@
  * The lyrics are invented, deliberately: this is a styling harness, and the
  * repository must not contain real ones.
  *
- *   node scripts/preview-pip.mjs [--no-open]
+ *   node scripts/preview-pip.mjs [--no-open] [--plain]
+ *
+ * `--plain` renders the untimed case: no current line and no progress mark. It is
+ * the case that used to pin itself to the bottom of the song, so it is worth
+ * being able to look at without a build. (The PiP window carries no footer, so
+ * the "text only" note that the in-page panel shows has nowhere to appear here.)
  */
 
 import { execFileSync } from 'node:child_process';
@@ -57,12 +62,17 @@ const LINES = [
 const CURRENT = 13;
 const PROGRESS = 0.42;
 
+const plain = process.argv.includes('--plain');
 const tokens = readFileSync(join(ROOT, 'src/styles/tokens.css'), 'utf8');
 const panel = readFileSync(join(ROOT, 'src/styles/panel.css'), 'utf8');
 
 const lines = LINES.map((text, index) => {
-  const current = index === CURRENT;
-  const className = current ? 'lyrimusic__line is-current' : 'lyrimusic__line';
+  const current = !plain && index === CURRENT;
+  const className = current
+    ? 'lyrimusic__line is-current'
+    : plain
+      ? 'lyrimusic__line is-plain'
+      : 'lyrimusic__line';
   const style = current ? ` style="--lyri-progress:${PROGRESS}"` : '';
   return `      <p class="${className}" data-line="${index}"${style}>${text}</p>`;
 }).join('\n');

@@ -481,6 +481,12 @@ body.lyrimusic-pip .lyrimusic__lyrics {
   flex: 1;
   height: auto;
   max-height: none;
+  /* `flex: 1` alone does NOT let this shrink below its content. A flex item's
+     automatic minimum size is its content, so a long untimed lyric would grow
+     past the window and the overflow would be clipped by the body — the text
+     would simply stop, with nothing to scroll. Zeroing it is what makes the
+     scroll real. */
+  min-height: 0;
   padding: 8px 22px;
   display: flex;
   flex-direction: column;

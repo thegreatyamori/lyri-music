@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { fromLrc, fromPlainText, parseLrc, plainLines } from '../src/lib/domain/lyrics';
+import { fromLrc, fromPlainText, hasTiming, parseLrc, plainLines } from '../src/lib/domain/lyrics';
 
 describe('parseLrc', () => {
   it('reads a plain timestamp and its text', () => {
@@ -93,5 +93,45 @@ describe('fromLrc and fromPlainText', () => {
   it('returns null rather than empty lyrics', () => {
     expect(fromLrc('lrclib', 'nothing')).toBeNull();
     expect(fromPlainText('lyricsovh', '   \n\n')).toBeNull();
+  });
+});
+
+describe('hasTiming', () => {
+  it('is true for timed lines', () => {
+    expect(
+      hasTiming({ sourceId: 'lrclib', kind: 'synced', lines: [{ timeMs: 1_000, text: 'a' }] }),
+    ).toBe(true);
+  });
+
+  it('is false for plain lyrics', () => {
+    expect(
+      hasTiming({ sourceId: 'lyricsovh', kind: 'plain', lines: [{ timeMs: 0, text: 'a' }] }),
+    ).toBe(false);
+  });
+
+  it('is false for lines labelled synced that are all zeros', () => {
+    // The case that matters. A clock handed these does not simply fail to
+    // highlight: every line compares as "already started", so the search for the
+    // current line finds the LAST one, and the panel pins itself to the bottom
+    // of the song with no way back up.
+    const lines = [
+      { timeMs: 0, text: 'a' },
+      { timeMs: 0, text: 'b' },
+      { timeMs: 0, text: 'c' },
+    ];
+    expect(hasTiming({ sourceId: 'lrclib', kind: 'synced', lines })).toBe(false);
+  });
+
+  it('is true when only some lines are timed', () => {
+    // A first line at zero is normal — it is the one that starts at the top.
+    const lines = [
+      { timeMs: 0, text: 'a' },
+      { timeMs: 5_000, text: 'b' },
+    ];
+    expect(hasTiming({ sourceId: 'lrclib', kind: 'synced', lines })).toBe(true);
+  });
+
+  it('is false for no lines at all', () => {
+    expect(hasTiming({ sourceId: 'lrclib', kind: 'synced', lines: [] })).toBe(false);
   });
 });

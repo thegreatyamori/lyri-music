@@ -1,6 +1,7 @@
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from 'solid-js';
 import { render } from 'solid-js/web';
 import type { Lyrics, TrackMetadata } from '../lib/domain/types';
+import { hasTiming } from '../lib/domain/lyrics';
 import { createLyricClock, type LyricClock } from '../lib/lyric-clock';
 import type { SourceId } from '../lib/domain/types';
 import { createNowPlaying } from './now-playing';
@@ -60,11 +61,21 @@ export function Overlay() {
    * Rebuilt when the lines or the offset change. Re-sorting on a recreated
    * clock is a few microseconds for a lyric's worth of lines, and it buys a
    * clock with no mutable state — cheaper to reason about than to optimise.
+   *
+   * Null for lyrics that cannot be followed, which is the point: handing a clock
+   * untimed lines does not leave the panel merely unhighlighted, it pins the
+   * view to the last line of the song. See `hasTiming`.
    */
   const clock = createMemo<LyricClock | null>(() => {
     const current = state();
-    if (current.kind !== 'ready') return null;
+    if (current.kind !== 'ready' || !hasTiming(current.lyrics)) return null;
     return createLyricClock(current.lyrics.lines, offsetMs());
+  });
+
+  /** Whether the offset control means anything for what is on screen. */
+  const timed = createMemo(() => {
+    const current = state();
+    return current.kind === 'ready' && hasTiming(current.lyrics);
   });
 
   const sourceId = createMemo<SourceId | null>(() => {
@@ -308,15 +319,30 @@ export function Overlay() {
         </Show>
 
         <footer class="lyrimusic__footer">
-          <span>Lyrics {offsetMs() === 0 ? 'in sync' : `${offsetMs() > 0 ? '+' : ''}${offsetMs()} ms`}</span>
-          <span class="lyrimusic__offset">
-            <button type="button" title="Lyrics 250 ms earlier" onClick={() => setOffsetMs((v) => v - OFFSET_STEP_MS)}>
-              −
-            </button>
-            <button type="button" title="Lyrics 250 ms later" onClick={() => setOffsetMs((v) => v + OFFSET_STEP_MS)}>
-              +
-            </button>
-          </span>
+          <Show
+            when={timed()}
+            fallback={<span>Text only — this source carries no timings</span>}
+          >
+            <span>
+              Lyrics {offsetMs() === 0 ? 'in sync' : `${offsetMs() > 0 ? '+' : ''}${offsetMs()} ms`}
+            </span>
+            <span class="lyrimusic__offset">
+              <button
+                type="button"
+                title="Lyrics 250 ms earlier"
+                onClick={() => setOffsetMs((v) => v - OFFSET_STEP_MS)}
+              >
+                −
+              </button>
+              <button
+                type="button"
+                title="Lyrics 250 ms later"
+                onClick={() => setOffsetMs((v) => v + OFFSET_STEP_MS)}
+              >
+                +
+              </button>
+            </span>
+          </Show>
         </footer>
       </section>
     </Show>
@@ -391,7 +417,7 @@ function LyricsList(props: LyricsListProps) {
               data-line={i()}
               classList={{
                 'is-current': i() === props.index(),
-                'is-plain': !hasTiming(props.state()),
+                'is-plain': isPlain(props.state()),
               }}
               style={i() === props.index() ? { '--lyri-progress': String(props.fraction()) } : undefined}
             >
@@ -408,8 +434,8 @@ function readyLines(state: PanelState): Lyrics['lines'] {
   return state.kind === 'ready' ? state.lyrics.lines : [];
 }
 
-function hasTiming(state: PanelState): boolean {
-  return state.kind === 'ready' && state.lyrics.kind === 'synced';
+function isPlain(state: PanelState): boolean {
+  return state.kind === 'ready' && !hasTiming(state.lyrics);
 }
 
 function stateMessage(state: PanelState): string {

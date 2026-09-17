@@ -84,3 +84,18 @@ export function fromPlainText(sourceId: SourceId, text: string): Lyrics | null {
   const lines = plainLines(text);
   return lines.length === 0 ? null : { sourceId, kind: 'plain', lines };
 }
+
+/**
+ * Whether anything can be followed.
+ *
+ * `kind` is the provider's promise and it is almost enough, but not quite: a set
+ * of lines that all carry a timestamp of zero cannot be followed either. Every
+ * line would compare as "already started", so a binary search for the current
+ * line finds the LAST of them — and a clock that reports the final line of the
+ * song as current does not fail quietly, it pins the view to the bottom and the
+ * reader cannot scroll back up. Asking both questions is cheap insurance against
+ * a provider that labels its output wrongly.
+ */
+export function hasTiming(lyrics: Lyrics): boolean {
+  return lyrics.kind === 'synced' && lyrics.lines.some((line) => line.timeMs > 0);
+}
