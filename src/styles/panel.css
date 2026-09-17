@@ -236,6 +236,207 @@ body.lyrimusic-pip {
   font-size: 16px;
 }
 
+/* --- The PiP backdrop ------------------------------------------------------
+   An animated gradient built from a handful of drifting shapes rather than one
+   interpolated ramp. A single hue drives all of them, each offset in phase and
+   in hue, so the window drifts through violet, cyan and magenta without the
+   colours ever cross-fading through mud the way two direct stops would.
+
+   The hue is a REGISTERED custom property, and that is what makes it animatable
+   at all: an unregistered custom property is a string as far as the engine is
+   concerned, so it would jump from one value to the next instead of travelling
+   between them.
+   -------------------------------------------------------------------------- */
+
+@property --pip-hue {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 264;
+}
+
+@keyframes lyrimusic-pip-hue {
+  0%,
+  100% {
+    --pip-hue: 264;
+  }
+  34% {
+    --pip-hue: 198;
+  }
+  67% {
+    --pip-hue: 324;
+  }
+}
+
+@keyframes lyrimusic-pip-drift-1 {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(16%, 12%, 0) scale(1.2);
+  }
+}
+
+@keyframes lyrimusic-pip-drift-2 {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1.1);
+  }
+  50% {
+    transform: translate3d(-14%, 18%, 0) scale(0.92);
+  }
+}
+
+@keyframes lyrimusic-pip-drift-3 {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(0.95);
+  }
+  50% {
+    transform: translate3d(10%, -16%, 0) scale(1.25);
+  }
+}
+
+@keyframes lyrimusic-pip-drift-4 {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1.05);
+  }
+  50% {
+    transform: translate3d(-18%, -10%, 0) scale(1.16);
+  }
+}
+
+@keyframes lyrimusic-pip-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+body.lyrimusic-pip {
+  animation: lyrimusic-pip-hue 48s ease-in-out infinite;
+}
+
+/* Positioned and given a z-index so that the shapes blend with this backdrop
+   rather than with whatever happens to be behind the window. */
+.lyrimusic-pip__backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      130% 100% at 50% -10%,
+      hsl(calc(var(--pip-hue) + 14) 55% 18%) 0%,
+      transparent 72%
+    ),
+    linear-gradient(
+      180deg,
+      hsl(var(--pip-hue) 32% 9%) 0%,
+      hsl(calc(var(--pip-hue) + 26) 34% 6%) 100%
+    );
+}
+
+.lyrimusic-pip__backdrop > span {
+  position: absolute;
+  display: block;
+  border-radius: 50%;
+  /* Screen over a dark base: the shapes add light instead of painting over each
+     other, which is what makes four of them read as one field of colour. */
+  mix-blend-mode: screen;
+  filter: blur(54px);
+  will-change: transform;
+}
+
+.lyrimusic-pip__backdrop > span:nth-child(1) {
+  width: 68%;
+  aspect-ratio: 1;
+  left: -20%;
+  top: -14%;
+  opacity: 0.75;
+  background: radial-gradient(circle, hsl(calc(var(--pip-hue) - 10) 92% 60%) 0%, transparent 68%);
+  animation: lyrimusic-pip-drift-1 31s ease-in-out infinite;
+}
+
+.lyrimusic-pip__backdrop > span:nth-child(2) {
+  width: 58%;
+  aspect-ratio: 1;
+  right: -18%;
+  top: 6%;
+  opacity: 0.62;
+  background: radial-gradient(circle, hsl(calc(var(--pip-hue) + 52) 88% 58%) 0%, transparent 70%);
+  animation: lyrimusic-pip-drift-2 37s ease-in-out infinite;
+}
+
+.lyrimusic-pip__backdrop > span:nth-child(3) {
+  width: 76%;
+  aspect-ratio: 1;
+  left: -12%;
+  bottom: -22%;
+  opacity: 0.55;
+  background: radial-gradient(circle, hsl(calc(var(--pip-hue) + 118) 84% 56%) 0%, transparent 72%);
+  animation: lyrimusic-pip-drift-3 43s ease-in-out infinite;
+}
+
+.lyrimusic-pip__backdrop > span:nth-child(4) {
+  width: 44%;
+  aspect-ratio: 1;
+  right: -6%;
+  bottom: -8%;
+  opacity: 0.5;
+  background: radial-gradient(circle, hsl(calc(var(--pip-hue) + 178) 90% 62%) 0%, transparent 66%);
+  animation: lyrimusic-pip-drift-4 29s ease-in-out infinite;
+}
+
+/* A slow sweep over the top of the four. Without it they settle into a
+   recognisable arrangement and the whole thing reads as a still. */
+.lyrimusic-pip__backdrop > span.sweep {
+  inset: -60%;
+  width: auto;
+  aspect-ratio: auto;
+  border-radius: 0;
+  /* Kept the faintest of the five: a rotating sweep is the most attention-hungry
+     thing here, and it should be felt rather than watched. */
+  opacity: 0.22;
+  filter: none;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    hsl(calc(var(--pip-hue) + 90) 95% 62% / 40%) 70deg,
+    transparent 190deg,
+    hsl(calc(var(--pip-hue) + 210) 95% 60% / 28%) 300deg,
+    transparent 360deg
+  );
+  animation: lyrimusic-pip-spin 64s linear infinite;
+}
+
+/* The scrim, and the reason the thing is readable at all.
+   Weighted towards the middle rather than applied flat: the lyric occupies the
+   central band, so that is where the colour is damped hardest, while the top and
+   bottom keep theirs and the window still looks like it has a colour rather than
+   a dark box. The lyrics are the point; the background is only allowed to be
+   busy behind them. */
+.lyrimusic-pip__backdrop::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      118% 50% at 50% 50%,
+      rgb(8 6 12 / 74%) 0%,
+      rgb(8 6 12 / 62%) 58%,
+      rgb(8 6 12 / 26%) 100%
+    ),
+    linear-gradient(180deg, rgb(8 6 12 / 34%) 0%, rgb(8 6 12 / 18%) 50%, rgb(8 6 12 / 46%) 100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.lyrimusic-pip,
+  .lyrimusic-pip__backdrop > span {
+    animation: none;
+  }
+}
+
 /**
  * The PiP window's only control.
  *
@@ -275,6 +476,8 @@ body.lyrimusic-pip:hover .lyrimusic-pip__controls,
 }
 
 body.lyrimusic-pip .lyrimusic__lyrics {
+  position: relative;
+  z-index: 1;
   flex: 1;
   height: auto;
   max-height: none;
@@ -299,6 +502,9 @@ body.lyrimusic-pip .lyrimusic__line {
   font-size: 17px;
   line-height: 1.35;
   border-radius: var(--lyri-radius-md);
+  /* A gradient behind text can put a bright patch under a word; this keeps the
+     contrast where the scrim already made it, without flattening the colour. */
+  text-shadow: 0 1px 12px rgb(0 0 0 / 62%);
 }
 
 body.lyrimusic-pip .lyrimusic__line.is-current {
@@ -317,11 +523,14 @@ body.lyrimusic-pip .lyrimusic__line.is-plain {
 }
 
 body.lyrimusic-pip .lyrimusic__state {
+  position: relative;
+  z-index: 1;
   flex: 1;
   display: grid;
   place-content: center;
   padding: 0 24px;
   text-align: center;
   font-size: 14px;
+  text-shadow: 0 1px 12px rgb(0 0 0 / 62%);
 }
 

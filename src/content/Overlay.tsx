@@ -219,6 +219,16 @@ export function Overlay() {
     const dispose = render(
       () => (
         <>
+          {/* Decorative, and hidden from the accessibility tree: five drifting
+              shapes the stylesheet turns into the backdrop. */}
+          <div class="lyrimusic-pip__backdrop" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+            <span />
+            <span class="sweep" />
+          </div>
+
           <div class="lyrimusic-pip__controls">
             <button
               class="lyrimusic__icon-button"

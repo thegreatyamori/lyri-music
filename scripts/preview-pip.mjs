@@ -78,6 +78,13 @@ ${tokens}
 ${panel}
   </style></head>
   <body class="lyrimusic-pip">
+    <div class="lyrimusic-pip__backdrop" aria-hidden="true">
+      <span></span>
+      <span></span>
+      <span></span>
+      <span></span>
+      <span class="sweep"></span>
+    </div>
     <div class="lyrimusic-pip__controls">
       <button class="lyrimusic__icon-button" type="button" title="Ask the sources again" aria-label="Ask the sources again">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
