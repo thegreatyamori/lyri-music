@@ -32,6 +32,16 @@ type PanelState =
 /** How much one press of the offset control moves the lyrics. */
 const OFFSET_STEP_MS = 250;
 
+/**
+ * How long to let the page settle before asking about a track.
+ *
+ * Long enough for the title and artist to catch up with the url after a song
+ * change, short enough that nobody notices the wait. The alternative was asking
+ * immediately and asking about the wrong song, which is what the panel used to
+ * do.
+ */
+const METADATA_SETTLE_MS = 350;
+
 export function Overlay() {
   const [track, setTrack] = createSignal<TrackMetadata | null>(null);
   const [state, setState] = createSignal<PanelState>({ kind: 'idle' });
@@ -87,14 +97,26 @@ export function Overlay() {
 
     if (token !== requestToken) return;
 
-    const lyrics = readAnswer(response);
+    const answer = readAnswer(response, next.videoId);
     console.info('[LyriMusic] answer', {
       videoId: next.videoId,
       force,
-      found: lyrics !== null,
-      source: lyrics?.sourceId ?? null,
+      outcome: answer.kind,
+      source: answer.kind === 'lyrics' ? answer.lyrics.sourceId : null,
     });
-    setState(lyrics === null ? { kind: 'empty' } : { kind: 'ready', lyrics });
+
+    switch (answer.kind) {
+      case 'lyrics':
+        setState({ kind: 'ready', lyrics: answer.lyrics });
+        return;
+      case 'none':
+        setState({ kind: 'empty' });
+        return;
+      case 'stale':
+        // An answer for a track this panel is no longer showing. Ignoring it
+        // leaves the state alone; whatever is current will report for itself.
+        return;
+    }
   }
 
   /**
@@ -117,16 +139,35 @@ export function Overlay() {
   }
 
   onMount(() => {
+    let pending: ReturnType<typeof setTimeout> | undefined;
+
     const unsubscribe = nowPlaying.watch((next) => {
       setTrack(next);
+      if (pending !== undefined) clearTimeout(pending);
+
       if (next === null) {
         requestToken += 1;
         setState({ kind: 'idle' });
         return;
       }
-      void requestLyrics(next, false);
+
+      // Wait for the metadata to settle before asking.
+      //
+      // The pieces do not arrive together, and they do not arrive in order: the
+      // url knows the new track before the page has finished reporting its name,
+      // so asking the moment the id changes asks about the previous song. A short
+      // wait collapses the burst into one lookup made with the final values, and
+      // the identity comparison upstream keeps re-arming this until it is right.
+      pending = setTimeout(() => {
+        pending = undefined;
+        void requestLyrics(next, false);
+      }, METADATA_SETTLE_MS);
     });
-    onCleanup(unsubscribe);
+
+    onCleanup(() => {
+      if (pending !== undefined) clearTimeout(pending);
+      unsubscribe();
+    });
   });
 
   onMount(() => {
@@ -345,13 +386,26 @@ function stateMessage(state: PanelState): string {
 }
 
 /**
- * The background always answers, but a malformed or unexpected reply must not
- * reach the panel as a crash. Anything unrecognised is treated as a miss.
+ * What a reply from the background turned out to be.
+ *
+ * `stale` is deliberately separate from `none`. An answer that belongs to a
+ * different track means "ignore this, nothing is wrong"; a null lyric means
+ * "asked, and nobody had it", which is worth telling the user. Collapsing the
+ * two is how a panel either keeps the previous song's words on screen or claims
+ * a track has no lyrics it was never asked about.
  */
-function readAnswer(response: unknown): Lyrics | null {
-  if (typeof response !== 'object' || response === null) return null;
-  const candidate = response as { type?: unknown; lyrics?: unknown };
-  if (candidate.type !== 'lyrics/answer') return null;
-  if (typeof candidate.lyrics !== 'object' || candidate.lyrics === null) return null;
-  return candidate.lyrics as Lyrics;
+type Answer =
+  | { readonly kind: 'lyrics'; readonly lyrics: Lyrics }
+  | { readonly kind: 'none' }
+  | { readonly kind: 'stale' };
+
+function readAnswer(response: unknown, expectedVideoId: string): Answer {
+  if (typeof response !== 'object' || response === null) return { kind: 'stale' };
+
+  const candidate = response as { type?: unknown; videoId?: unknown; lyrics?: unknown };
+  if (candidate.type !== 'lyrics/answer') return { kind: 'stale' };
+  if (candidate.videoId !== expectedVideoId) return { kind: 'stale' };
+  if (typeof candidate.lyrics !== 'object' || candidate.lyrics === null) return { kind: 'none' };
+
+  return { kind: 'lyrics', lyrics: candidate.lyrics as Lyrics };
 }

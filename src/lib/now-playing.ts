@@ -99,22 +99,27 @@ function firstNonNull(
 /**
  * Whether an update carries nothing new.
  *
- * Matching video ids is deliberately NOT enough, and getting this wrong was a
- * real bug. The metadata arrives in pieces: the title and artist are known the
- * moment a track starts, while the length only exists once the video element has
- * loaded it. A lookup that ran in between went out with no duration. If a
- * duration arriving afterwards counts as "nothing changed", the panel never asks
- * again — the track stays wordless for as long as its cached miss survives, and
- * the moment the length became known is exactly the moment the answer was
- * already on its way to being wrong.
+ * The identity is the WHOLE image — id, title, artist, album — and comparing
+ * only the id was a real bug with a nasty shape. A track's id comes from the
+ * url and is known the instant you change song, while the title and artist come
+ * from the page and lag behind it. So the first report after a change pairs the
+ * NEW id with the PREVIOUS song's name, and a lookup made then answers the wrong
+ * question. If the correction that follows counts as "nothing changed" — same
+ * id, after all — the panel never asks again and shows the old song's words
+ * until the cache entry expires.
  *
- * A re-report of the same video with the duration it already had is still not a
- * change, which is what keeps the 500 ms poll from doing anything at all.
+ * A duration *arriving* is a change for the same reason: the first lookup may
+ * have gone out before the video element knew its length. A duration merely
+ * changing value is not, because nothing upstream reports a live length.
  */
 function isNoChange(first: TrackMetadata | null, second: TrackMetadata | null): boolean {
   if (first === null) return second === null;
   if (second === null) return false;
+
   if (first.videoId !== second.videoId) return false;
+  if (first.title !== second.title) return false;
+  if (first.artist !== second.artist) return false;
+  if (first.album !== second.album) return false;
 
   return !(first.durationMs <= 0 && second.durationMs > 0);
 }

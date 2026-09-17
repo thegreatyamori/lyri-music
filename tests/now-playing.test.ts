@@ -102,6 +102,44 @@ describe('firstAvailable', () => {
     expect(changes).toEqual([track('one', 999)]);
   });
 
+  it('reports a title correction for the same video, which is the bug that showed the wrong song', () => {
+    // After a song change the url knows the new id before the page knows the new
+    // title, so the first report pairs them wrongly. If the correction were
+    // suppressed — same id, after all — the lookup made against the previous
+    // song's name would stand, and the panel would show the previous lyrics.
+    const source = fakeSource(track('new-id'));
+    const changes: Array<TrackMetadata | null> = [];
+
+    firstAvailable([source.source]).watch((value) => changes.push(value));
+
+    const right = { ...track('new-id'), title: 'Invented title, corrected' };
+    source.emit(right);
+
+    expect(changes).toEqual([track('new-id'), right]);
+  });
+
+  it('does not report a re-report of an identical value', () => {
+    // The 500 ms poll re-reads the same metadata constantly; only a genuine
+    // change should get through.
+    const source = fakeSource(track('one', 999));
+    const changes: Array<TrackMetadata | null> = [];
+
+    firstAvailable([source.source]).watch((value) => changes.push(value));
+    source.emit(track('one', 999));
+
+    expect(changes).toHaveLength(1);
+  });
+
+  it('reports an artist correction for the same video', () => {
+    const source = fakeSource(track('one', 999));
+    const changes: Array<TrackMetadata | null> = [];
+
+    firstAvailable([source.source]).watch((value) => changes.push(value));
+    source.emit({ ...track('one', 999), artist: 'Invented artist, corrected' });
+
+    expect(changes).toHaveLength(2);
+  });
+
   it('reports a video change and a track-to-null transition', () => {
     const source = fakeSource(track('one'));
     const changes: Array<TrackMetadata | null> = [];

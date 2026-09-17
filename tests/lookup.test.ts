@@ -209,6 +209,31 @@ describe('lookup', () => {
     expect(spy).toHaveBeenCalledTimes(2);
   });
 
+  it('does not answer a corrected title from the entry an earlier wrong title created', async () => {
+    // The exact shape of the bug: the same video, asked once with the previous
+    // song's name and then with the right one. An id-keyed cache would serve the
+    // first answer for the second question and the panel would never recover.
+    const cache = newCache();
+    const provider = fakeProvider({ id: 'lrclib', result: lyrics('lrclib', 'synced') });
+    const spy = vi.spyOn(provider, 'fetch');
+
+    await lookup({ ...query, title: 'Invented Wrong Title' }, { providers: [provider], cache });
+    await lookup({ ...query, title: 'Invented Right Title' }, { providers: [provider], cache });
+
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  it('still answers a replay of the very same question from the cache', async () => {
+    const cache = newCache();
+    const provider = fakeProvider({ id: 'lrclib', result: lyrics('lrclib', 'synced') });
+    const spy = vi.spyOn(provider, 'fetch');
+
+    await lookup({ ...query, title: 'Invented Right Title' }, { providers: [provider], cache });
+    await lookup({ ...query, title: 'Invented Right Title' }, { providers: [provider], cache });
+
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
   it('returns null rather than an empty lyric', async () => {
     const empty: Lyrics = { sourceId: 'lrclib', kind: 'synced', lines: [] };
     const deps = {

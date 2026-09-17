@@ -21,6 +21,7 @@
  */
 
 import type { LyricsCache } from './cache';
+import { cacheKeyFor } from './cache';
 import type { Lyrics, SourceId, TrackQuery } from './domain/types';
 import type { LyricsProvider } from './providers/provider';
 
@@ -56,8 +57,13 @@ export async function lookup(
   query: TrackQuery,
   deps: LookupDeps,
 ): Promise<LookupResult | null> {
+  // The key is the question, not the video — see `cacheKeyFor`. A track whose
+  // title has only just been reported is a different question from the same
+  // track asked correctly a moment later, and the two must not share an answer.
+  const key = cacheKeyFor(query);
+
   if (deps.force !== true) {
-    const cached = await deps.cache.get(query.videoId);
+    const cached = await deps.cache.get(key);
     if (cached.hit) {
       // A remembered miss is an answer too, and the cheapest one there is.
       return cached.lyrics === null
@@ -73,7 +79,7 @@ export async function lookup(
   // says very little about whether lyrics exist, and storing that answer would
   // keep the panel empty over a conclusion nobody actually reached.
   if (result !== null || query.durationMs > 0) {
-    await deps.cache.set(query.videoId, result?.lyrics ?? null);
+    await deps.cache.set(key, result?.lyrics ?? null);
   }
 
   return result;
