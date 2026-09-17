@@ -1,11 +1,89 @@
 body {
   margin: 0;
   width: 320px;
-  font: 500 13px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   color: var(--lyri-on-surface);
-  background: var(--lyri-surface);
+  background: var(--lyri-surface-solid);
+  font-family: var(--lyri-font);
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .popup {
-  padding: 14px 16px;
+  padding: 14px 16px 16px;
+}
+
+.popup__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.popup__lead {
+  margin: 2px 0 12px;
+  font-size: 11px;
+  color: var(--lyri-on-surface-variant);
+}
+
+.popup__sources {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.popup__source + .popup__source {
+  margin-top: 2px;
+}
+
+.popup__label {
+  display: flex;
+  gap: 10px;
+  padding: 8px 8px;
+  border-radius: var(--lyri-radius-sm);
+  cursor: pointer;
+}
+
+.popup__label:hover {
+  background: var(--lyri-surface-container);
+}
+
+.popup__label input {
+  margin: 2px 0 0;
+  accent-color: var(--lyri-primary);
+}
+
+.popup__text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.popup__name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.popup__tag {
+  padding: 1px 6px;
+  border: 1px solid var(--lyri-outline);
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--lyri-on-surface-variant);
+}
+
+.popup__detail {
+  font-size: 11px;
+  color: var(--lyri-on-surface-variant);
+}
+
+.popup__note {
+  margin: 12px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--lyri-outline);
+  font-size: 10.5px;
+  color: var(--lyri-on-surface-variant);
 }

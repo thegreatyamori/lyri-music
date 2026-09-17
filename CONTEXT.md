@@ -57,9 +57,10 @@ src/
     lookup.ts      the deep module: fan-out, order, cache, backoff
     cache.ts       adapter over chrome.storage.local + a memory adapter
     query.ts       YouTube title/artist → search-ready Track Query
-    now-playing.ts the seam's interface lives in domain/types.ts; adapters in content/
+    lyric-clock.ts position → current line. Pure: no DOM, no chrome
+    now-playing.ts composition of adapters (pure, testable with fakes)
   background/      worker.ts — adapter over lookup
-  content/         index.tsx (mounts the Overlay), now-playing.ts (adapters), lyric-clock.ts, Overlay.tsx
+  content/         index.tsx (mounts the Overlay), now-playing.ts (the two adapters), Overlay.tsx
   pip/             the PiP window, another presentation of the same lines
   popup/           the toolbar popup
   styles/          tokens.css, panel.css

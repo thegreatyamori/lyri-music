@@ -1,16 +1,209 @@
+/**
+ * The panel.
+ *
+ * Everything is scoped under `.lyrimusic` so that the same rules are harmless
+ * if they ever land in a document rather than a shadow root, and everything is
+ * sized in `rem`-free pixels so YouTube Music's root font size cannot change
+ * the panel's proportions.
+ */
+
 :host {
   all: initial;
 }
 
-.lyrimusic-panel {
+.lyrimusic {
   position: fixed;
-  right: 16px;
-  bottom: 88px;
+  right: 20px;
+  bottom: 96px;
   z-index: 2147483647;
-  padding: 10px 14px;
-  border-radius: 18px;
-  font: 500 13px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  color: var(--lyri-on-surface);
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+
+  border-radius: var(--lyri-radius-lg);
+  border: 1px solid var(--lyri-outline);
   background: var(--lyri-surface);
-  box-shadow: 0 8px 24px rgb(0 0 0 / 24%);
+  backdrop-filter: blur(var(--lyri-blur)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--lyri-blur)) saturate(180%);
+  box-shadow: var(--lyri-elevation);
+  color: var(--lyri-on-surface);
+  font-family: var(--lyri-font);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.lyrimusic__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px 10px;
+}
+
+.lyrimusic__heading {
+  flex: 1;
+  min-width: 0;
+}
+
+.lyrimusic__title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lyrimusic__artist {
+  margin: 0;
+  font-size: 11px;
+  color: var(--lyri-on-surface-variant);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The source badge: which provider the visible lyrics came from. */
+.lyrimusic__badge {
+  flex: none;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--lyri-outline);
+  background: var(--lyri-surface-high);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--lyri-on-surface-variant);
+}
+
+.lyrimusic__icon-button {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--lyri-radius-sm);
+  background: transparent;
+  color: var(--lyri-on-surface-variant);
+  cursor: pointer;
+  transition: background var(--lyri-motion), color var(--lyri-motion);
+}
+
+.lyrimusic__icon-button:hover {
+  background: var(--lyri-surface-high);
+  color: var(--lyri-on-surface);
+}
+
+.lyrimusic__icon-button:focus-visible {
+  outline: 2px solid var(--lyri-primary);
+  outline-offset: 2px;
+}
+
+.lyrimusic__lyrics {
+  max-height: 46vh;
+  overflow-y: auto;
+  padding: 4px 6px 14px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--lyri-outline) transparent;
+  /* Fades the first and last lines instead of cutting them, so the panel reads
+     as a window onto the song rather than a list that ran out of room. */
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 18px,
+    #000 calc(100% - 18px),
+    transparent 100%
+  );
+}
+
+.lyrimusic__line {
+  position: relative;
+  margin: 0;
+  padding: 7px 10px;
+  border-radius: var(--lyri-radius-sm);
+  color: var(--lyri-on-surface-variant);
+  opacity: 0.62;
+  transition: opacity var(--lyri-motion), color var(--lyri-motion);
+}
+
+.lyrimusic__line.is-current {
+  color: var(--lyri-on-surface);
+  opacity: 1;
+  font-weight: 600;
+}
+
+/* The smooth fill under the current line: the panel's only ornamental motion,
+   and the reason the clock exposes a fraction and not just an index. */
+.lyrimusic__line.is-current::after {
+  content: '';
+  position: absolute;
+  left: 10px;
+  bottom: 3px;
+  height: 2px;
+  width: calc((100% - 20px) * var(--lyri-progress, 0));
+  border-radius: 2px;
+  background: var(--lyri-primary);
+}
+
+.lyrimusic__line.is-plain {
+  opacity: 0.86;
+}
+
+.lyrimusic__state {
+  padding: 22px 16px 26px;
+  text-align: center;
+  color: var(--lyri-on-surface-variant);
+}
+
+.lyrimusic__state-hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+.lyrimusic__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 14px 12px;
+  border-top: 1px solid var(--lyri-outline);
+  font-size: 11px;
+  color: var(--lyri-on-surface-variant);
+}
+
+.lyrimusic__offset {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lyrimusic__offset button {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--lyri-outline);
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+/* The PiP window is a normal document, so it gets a variant of the same tree. */
+body.lyrimusic-pip {
+  margin: 0;
+  background: var(--lyri-surface-solid);
+  color: var(--lyri-on-surface);
+  font-family: var(--lyri-font);
+  font-size: 13px;
+}
+
+body.lyrimusic-pip .lyrimusic__lyrics {
+  max-height: none;
+  height: calc(100vh - 96px);
 }
