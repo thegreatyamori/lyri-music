@@ -5,6 +5,7 @@ import { hasTiming } from '../lib/domain/lyrics';
 import { createLyricClock, type LyricClock } from '../lib/lyric-clock';
 import type { SourceId } from '../lib/domain/types';
 import { createNowPlaying } from './now-playing';
+import { openPipShell } from './pip-window';
 import {
   onPanelVisibleChange,
   readPanelVisible,
@@ -207,18 +208,10 @@ export function Overlay() {
   });
 
   async function openPip(): Promise<void> {
-    const api = window.documentPictureInPicture;
-    if (api === undefined || pipOpen()) return;
+    if (pipOpen()) return;
 
-    const pip = await api.requestWindow({ width: 360, height: 520 });
-
-    const style = pip.document.createElement('style');
-    style.textContent = `${tokensCss}\n${panelCss}`;
-    pip.document.head.append(style);
-    pip.document.body.classList.add('lyrimusic-pip');
-
-    const mount = pip.document.createElement('div');
-    pip.document.body.append(mount);
+    const shell = await openPipShell(`${tokensCss}\n${panelCss}`);
+    if (shell === null) return;
 
     setPipOpen(true);
 
@@ -227,6 +220,9 @@ export function Overlay() {
     // The refresh control is repeated here because the PiP window has no header
     // to put it in, and a stale empty panel you cannot retry from is the exact
     // trap the panel's own hide button used to be.
+    //
+    // Into the body, never into a wrapper — `openPipShell` explains why, and its
+    // test pins it.
     const dispose = render(
       () => (
         <>
@@ -257,10 +253,10 @@ export function Overlay() {
           <LyricsList state={state} index={index} fraction={fraction} clampHeight={false} />
         </>
       ),
-      mount,
+      shell.target,
     );
 
-    pip.addEventListener('pagehide', () => {
+    shell.window.addEventListener('pagehide', () => {
       dispose();
       setPipOpen(false);
     });

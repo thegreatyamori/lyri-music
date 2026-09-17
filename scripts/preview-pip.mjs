@@ -12,6 +12,13 @@
  * The lyrics are invented, deliberately: this is a styling harness, and the
  * repository must not contain real ones.
  *
+ * The markup below MUST mirror what the app renders — the backdrop, the controls
+ * and the lyric list as DIRECT children of `body.lyrimusic-pip`, with no wrapper.
+ * This harness has already lied once by writing a structure the app did not use:
+ * it showed a scrolling lyric list while the real window wrapped the list in a
+ * div, which cost it the height it needed to scroll at all. See
+ * `src/content/pip-window.ts` before changing what goes inside `body`.
+ *
  *   node scripts/preview-pip.mjs [--no-open] [--plain]
  *
  * `--plain` renders the untimed case: no current line and no progress mark. It is
