@@ -1,5 +1,12 @@
 # NOTICE
 
+## Scope of the license
+
+The MIT license in `LICENSE` covers the source code in this repository, and
+nothing else. It does not cover song lyrics, which are the property of their
+respective rights holders and are not distributed by this project in any form —
+see the section below.
+
 ## What this project owes to others
 
 LyriMusic is an independent implementation. No source code was copied into it

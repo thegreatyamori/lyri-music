@@ -78,6 +78,13 @@ leaves the machine is a lyrics search — title, artist, album, duration — sen
 the sources you have enabled, for the track you are playing. Everything else
 stays in the browser's own local storage.
 
+License
+-------
+MIT for the source code — see LICENSE beside this file, which travels with the
+folder because the license asks to be included in copies. It does not cover song
+lyrics, which belong to their respective rights holders and are not distributed
+by this project. See NOTICE for that and for the third-party sources.
+
 Known limitation
 ----------------
 The panel finds the current track by reading the page. If YouTube Music changes
@@ -88,6 +95,12 @@ rmSync(STAGE, { recursive: true, force: true });
 mkdirSync(STAGE, { recursive: true });
 cpSync(DIST, STAGE, { recursive: true });
 writeFileSync(join(STAGE, 'INSTALL.txt'), INSTALL);
+
+// MIT requires the notice to travel with copies of the software, and the build
+// output is a copy. NOTICE comes along because INSTALL.txt points at it.
+for (const file of ['LICENSE', 'NOTICE']) {
+  cpSync(join(ROOT, file), join(STAGE, file));
+}
 
 rmSync(archive, { force: true });
 execFileSync('zip', ['-rq', archive, '.', '-x', '*.map'], { cwd: STAGE, stdio: 'inherit' });
