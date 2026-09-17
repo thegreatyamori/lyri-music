@@ -16,6 +16,14 @@ import type { Lyrics, SourceId, TrackMetadata } from './domain/types';
 export interface LyricsForTrack {
   readonly type: 'lyrics/for-track';
   readonly track: TrackMetadata;
+  /**
+   * Ask again even if this track is already in the cache.
+   *
+   * Required rather than optional, so that every caller has to say which it
+   * means. A cached miss is indistinguishable from "no lyrics exist" in the
+   * panel, and the only way out of one is to say so deliberately.
+   */
+  readonly force: boolean;
 }
 
 export interface SettingsGet {

@@ -21,7 +21,13 @@ type PanelState =
   | { readonly kind: 'idle' }
   | { readonly kind: 'loading' }
   | { readonly kind: 'ready'; readonly lyrics: Lyrics }
-  | { readonly kind: 'empty' };
+  | { readonly kind: 'empty' }
+  /**
+   * The background module could not be reached at all. Kept separate from
+   * `empty` because they call for opposite reactions: `empty` means the sources
+   * were asked and nobody had the words, this one means nobody was asked.
+   */
+  | { readonly kind: 'unavailable' };
 
 /** How much one press of the offset control moves the lyrics. */
 const OFFSET_STEP_MS = 250;
@@ -36,6 +42,7 @@ export function Overlay() {
   // the same state, and neither can leave the other stranded.
   const [panelVisible, setPanelVisible] = createSignal(true);
   const [pipOpen, setPipOpen] = createSignal(false);
+  const [refreshing, setRefreshing] = createSignal(false);
 
   const nowPlaying = createNowPlaying();
 
@@ -58,23 +65,55 @@ export function Overlay() {
   /** Guards against a slow answer for the previous track overwriting this one. */
   let requestToken = 0;
 
-  async function requestLyrics(next: TrackMetadata): Promise<void> {
+  async function requestLyrics(next: TrackMetadata, force: boolean): Promise<void> {
     const token = ++requestToken;
     setState({ kind: 'loading' });
 
     let response: unknown;
     try {
-      response = await chrome.runtime.sendMessage({ type: 'lyrics/for-track', track: next });
-    } catch {
-      // The background module can be starting up, or the extension reloaded.
-      if (token === requestToken) setState({ kind: 'empty' });
+      response = await chrome.runtime.sendMessage({
+        type: 'lyrics/for-track',
+        track: next,
+        force,
+      });
+    } catch (error) {
+      // The background module can be starting up, or the extension may have been
+      // reloaded under this tab. Neither is "no lyrics exist", and saying so
+      // would send the user looking in the wrong place.
+      console.warn('[LyriMusic] background unreachable', error);
+      if (token === requestToken) setState({ kind: 'unavailable' });
       return;
     }
 
     if (token !== requestToken) return;
 
     const lyrics = readAnswer(response);
+    console.info('[LyriMusic] answer', {
+      videoId: next.videoId,
+      force,
+      found: lyrics !== null,
+      source: lyrics?.sourceId ?? null,
+    });
     setState(lyrics === null ? { kind: 'empty' } : { kind: 'ready', lyrics });
+  }
+
+  /**
+   * Ask again, ignoring what the cache remembers.
+   *
+   * A remembered miss is indistinguishable, in the panel, from a lookup that
+   * failed — so this is the affordance that makes the difference recoverable
+   * without reloading the page or clearing extension storage by hand.
+   */
+  async function refresh(): Promise<void> {
+    const current = track();
+    if (current === null || refreshing()) return;
+
+    setRefreshing(true);
+    try {
+      await requestLyrics(current, true);
+    } finally {
+      setRefreshing(false);
+    }
   }
 
   onMount(() => {
@@ -85,7 +124,7 @@ export function Overlay() {
         setState({ kind: 'idle' });
         return;
       }
-      void requestLyrics(next);
+      void requestLyrics(next, false);
     });
     onCleanup(unsubscribe);
   });
@@ -158,6 +197,31 @@ export function Overlay() {
 
           <button
             class="lyrimusic__icon-button"
+            classList={{ 'is-busy': refreshing() }}
+            type="button"
+            title="Ask the sources again"
+            disabled={refreshing() || track() === null}
+            onClick={() => void refresh()}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                d="M20.5 12a8.5 8.5 0 1 1-2.6-6.1"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+              />
+              <path
+                d="M20.5 3.5v5h-5"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
+
+          <button
+            class="lyrimusic__icon-button"
             type="button"
             title="Pop out"
             onClick={() => void openPip()}
@@ -220,7 +284,17 @@ function LyricsList(props: LyricsListProps) {
   return (
     <Show
       when={props.state().kind === 'ready'}
-      fallback={<p class="lyrimusic__state">{stateMessage(props.state())}</p>}
+      fallback={
+        <p class="lyrimusic__state">
+          {stateMessage(props.state())}
+          <Show when={props.state().kind === 'empty'}>
+            <span class="lyrimusic__state-hint">Use the refresh button above to ask again</span>
+          </Show>
+          <Show when={props.state().kind === 'unavailable'}>
+            <span class="lyrimusic__state-hint">Reload the YouTube Music tab</span>
+          </Show>
+        </p>
+      }
     >
       <div
         class="lyrimusic__lyrics"
@@ -263,6 +337,8 @@ function stateMessage(state: PanelState): string {
       return 'Looking for lyrics…';
     case 'empty':
       return 'No lyrics found';
+    case 'unavailable':
+      return 'Cannot reach the extension';
     default:
       return '';
   }

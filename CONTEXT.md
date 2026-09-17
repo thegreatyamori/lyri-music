@@ -100,6 +100,41 @@ pnpm verify      # no-lyrics check → typecheck → tests → both builds
 pnpm test        # vitest, node environment
 ```
 
+## Provider constraints worth not rediscovering
+
+All measured against the live services. Several of these read naturally the other
+way round, and getting one backwards cost real misses.
+
+**LRCLIB — `/api/get`**
+
+- `User-Agent` is a forbidden header in `fetch` and is dropped silently. LRCLIB
+  documents `X-User-Agent` and `Lrclib-Client` as the alternatives for exactly
+  this case, so both are sent.
+- `duration` is a **selector, not a filter**. Asking for 200 s returns a 199.6 s
+  record; asking for 999 s returns a 999 s one. Only an unknown *name* produces a
+  404. So a duration that does not match the edit LRCLIB holds does not fail the
+  lookup — it silently answers with a **different edit**. The attempt without a
+  duration asks for the canonical record instead.
+- A `duration` outside 1–3600 is a **400 ValidationError** which loses the whole
+  request. A track that has only just started reports zero, so the parameter is
+  omitted unless it is inside the documented range.
+- A wrong `album_name` turns a hit into a 404. It is never sent.
+- A version suffix in `track_name` is on its own enough to 404, and the
+  structured `/api/search?track_name=` is **exactly as strict** — only the
+  free-text `q=` is fuzzy.
+- A 429 carries `Retry-After`, and the documentation requires the client to
+  honour it; ignoring it can earn a temporary ban. Honoured through a
+  module-level deadline, so one 429 stops every provider's next request too.
+
+**When the metadata arrives**
+
+- A track's title and artist are known before the `<video>` element knows its
+  length. Two rules depend on that ordering, and both are load-bearing: the
+  NowPlaying composition treats a duration *arriving* for the same video as a
+  change worth reporting, and the Lookup refuses to remember a miss that was made
+  without a duration. Without them the first lookup runs against an incomplete
+  question, and the panel stays wordless until the cached miss expires.
+
 ## Out of scope for v1
 
 Word-level (syllable) timing, Genius, Musixmatch, reusing YouTube's own lyrics

@@ -37,6 +37,15 @@ export interface LookupDeps {
    * panel that stays empty while one unreachable host times out on its own.
    */
   readonly deadlineMs?: number;
+  /**
+   * Ignore what the cache already remembers and ask the providers again.
+   *
+   * A remembered miss is a legitimate answer — it is what stops a track with no
+   * lyrics from costing four lookups on every play — but it is also
+   * indistinguishable, from the panel, from a lookup that simply failed. This is
+   * the deliberate way out, and the only one.
+   */
+  readonly force?: boolean;
 }
 
 export const DEFAULT_DEADLINE_MS = 8_000;
@@ -47,14 +56,26 @@ export async function lookup(
   query: TrackQuery,
   deps: LookupDeps,
 ): Promise<LookupResult | null> {
-  const cached = await deps.cache.get(query.videoId);
-  if (cached.hit) {
-    // A remembered miss is an answer too, and the cheapest one there is.
-    return cached.lyrics === null ? null : { lyrics: cached.lyrics, sourceId: cached.lyrics.sourceId };
+  if (deps.force !== true) {
+    const cached = await deps.cache.get(query.videoId);
+    if (cached.hit) {
+      // A remembered miss is an answer too, and the cheapest one there is.
+      return cached.lyrics === null
+        ? null
+        : { lyrics: cached.lyrics, sourceId: cached.lyrics.sourceId };
+    }
   }
 
   const result = await race(query, deps);
-  await deps.cache.set(query.videoId, result?.lyrics ?? null);
+
+  // A hit is always worth remembering. A miss is worth remembering only when the
+  // question was complete: a lookup that ran before the track's length was known
+  // says very little about whether lyrics exist, and storing that answer would
+  // keep the panel empty over a conclusion nobody actually reached.
+  if (result !== null || query.durationMs > 0) {
+    await deps.cache.set(query.videoId, result?.lyrics ?? null);
+  }
+
   return result;
 }
 
@@ -64,7 +85,23 @@ async function race(query: TrackQuery, deps: LookupDeps): Promise<LookupResult |
 
   const controller = new AbortController();
   const deadline = deps.deadlineMs ?? DEFAULT_DEADLINE_MS;
-  const timer = setTimeout(() => controller.abort(), deadline);
+
+  /**
+   * The deadline is raced, not merely signalled.
+   *
+   * Aborting the controller is a request to stop, and a provider that does not
+   * listen to it would leave the loop awaiting that promise forever — a budget
+   * that only holds against cooperative code is not a budget. Racing it makes
+   * the deadline hard: once it fires, every remaining await resolves at once and
+   * the lookup reports whatever it already has.
+   */
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expired = new Promise<Settled>((resolve) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      resolve({ lyrics: null });
+    }, deadline);
+  });
 
   try {
     const jobs = providers.map((provider) => ({
@@ -75,7 +112,7 @@ async function race(query: TrackQuery, deps: LookupDeps): Promise<LookupResult |
     let fallback: LookupResult | null = null;
 
     for (const job of jobs) {
-      const { lyrics } = await job.settled;
+      const { lyrics } = await Promise.race([job.settled, expired]);
       if (lyrics === null || lyrics.lines.length === 0) continue;
 
       if (lyrics.kind === 'synced') return { lyrics, sourceId: job.sourceId };
@@ -85,9 +122,9 @@ async function race(query: TrackQuery, deps: LookupDeps): Promise<LookupResult |
     return fallback;
   } finally {
     // Nobody still in flight is worth waiting on, and this module will not
-    // return while a provider is. Cancelling here is what keeps the deadline
+    // return while a provider is. Cancelling here is what makes the signal
     // meaningful rather than decorative.
-    clearTimeout(timer);
+    if (timer !== undefined) clearTimeout(timer);
     controller.abort();
   }
 }

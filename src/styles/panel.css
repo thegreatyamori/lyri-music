@@ -102,6 +102,28 @@
   outline-offset: 2px;
 }
 
+.lyrimusic__icon-button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* The refresh button, while a lookup is in flight. */
+.lyrimusic__icon-button.is-busy svg {
+  animation: lyrimusic-spin 900ms linear infinite;
+}
+
+@keyframes lyrimusic-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lyrimusic__icon-button.is-busy svg {
+    animation: none;
+  }
+}
+
 .lyrimusic__lyrics {
   max-height: 46vh;
   overflow-y: auto;

@@ -1,6 +1,15 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { lrclib } from '../src/lib/providers/lrclib';
+/**
+ * The LRCLIB provider, exercised on invented text with a URL-routed stub.
+ *
+ * Routing by URL rather than counting calls keeps these tests honest when the
+ * attempt order changes — which it does, because the order is the thing the
+ * provider exists to get right. Every behavioural claim here was checked
+ * against the live service first; see the notes in the provider.
+ */
+
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TrackQuery } from '../src/lib/domain/types';
+import { lrclib, retryAfterRemainingMs } from '../src/lib/providers/lrclib';
 
 const query: TrackQuery = {
   videoId: 'video-1',
@@ -11,124 +20,86 @@ const query: TrackQuery = {
   isrc: null,
 };
 
-function response(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  });
+const signal = (): AbortSignal => new AbortController().signal;
+
+/** A complete LRCLIB row, so a test overrides only the field it is about. */
+const syncedRow = {
+  id: 20,
+  duration: 123.4,
+  instrumental: false,
+  trackName: 'Wibble Song',
+  artistName: 'The Wibbles',
+  plainLyrics: null,
+  syncedLyrics: '[00:01.00]zorblat',
+};
+
+function json(body: unknown, status = 200, headers?: Record<string, string>): Response {
+  // Built up rather than passed inline: `exactOptionalPropertyTypes` is on, and
+  // an explicit `headers: undefined` is not the same as an absent property.
+  const init: ResponseInit = { status };
+  if (headers !== undefined) init.headers = headers;
+  return new Response(JSON.stringify(body), init);
+}
+
+const notFound = (): Response => json({ code: 404, name: 'TrackNotFound' }, 404);
+
+interface Call {
+  readonly url: URL;
+  readonly init: RequestInit | undefined;
+}
+
+function stubFetch(handler: (url: URL, call: number) => Response): Call[] {
+  const calls: Call[] = [];
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((input: unknown, init?: RequestInit) => {
+      const url = new URL(String(input));
+      calls.push({ url, init });
+      return Promise.resolve(handler(url, calls.length - 1));
+    }),
+  );
+  return calls;
+}
+
+function durationOf(url: URL): string | null {
+  return url.searchParams.get('duration');
 }
 
 afterEach(() => {
+  vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
-describe('lrclib provider', () => {
-  it('returns synced lyrics and prefers synced text', async () => {
-    const fetch = vi.fn().mockResolvedValue(
-      response({
-        id: 7,
-        duration: 123.4,
-        instrumental: false,
-        plainLyrics: 'the wibbles',
-        syncedLyrics: '[00:01.00]zorblat\n[00:02.00]the wibbles',
-      }),
-    );
-    vi.stubGlobal('fetch', fetch);
+describe('lrclib result handling', () => {
+  it('returns synced lyrics when the record has them', async () => {
+    stubFetch(() => json(syncedRow));
 
-    const lyrics = await lrclib.fetch(query, new AbortController().signal);
+    const lyrics = await lrclib.fetch(query, signal());
 
     expect(lyrics?.kind).toBe('synced');
-    expect(lyrics?.lines).toHaveLength(2);
+    expect(lyrics?.sourceId).toBe('lrclib');
+    expect(lyrics?.lines).toHaveLength(1);
   });
 
-  it('returns plain lyrics when no synced text is present', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        response({
-          id: 8,
-          duration: 123.4,
-          instrumental: false,
-          plainLyrics: 'zorblat\nthe wibbles',
-          syncedLyrics: null,
-        }),
-      ),
-    );
+  it('returns plain lyrics when there are no timings', async () => {
+    stubFetch(() => json({ ...syncedRow, syncedLyrics: null, plainLyrics: 'zorblat' }));
 
-    const lyrics = await lrclib.fetch(query, new AbortController().signal);
-
-    expect(lyrics?.kind).toBe('plain');
+    await expect(lrclib.fetch(query, signal())).resolves.toMatchObject({ kind: 'plain' });
   });
 
-  it('returns null for instrumental results', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        response({
-          id: 9,
-          duration: 123.4,
-          instrumental: true,
-          plainLyrics: null,
-          syncedLyrics: null,
-        }),
-      ),
-    );
+  it('returns null for an instrumental record', async () => {
+    stubFetch(() => json({ ...syncedRow, instrumental: true, syncedLyrics: null }));
 
-    await expect(lrclib.fetch(query, new AbortController().signal)).resolves.toBeNull();
+    await expect(lrclib.fetch(query, signal())).resolves.toBeNull();
   });
 
-  it('falls back to a close search result after a get 404', async () => {
-    const fetch = vi
-      .fn()
-      .mockResolvedValueOnce(response({}, 404))
-      .mockResolvedValueOnce(
-        response([
-          {
-            id: 10,
-            duration: 124,
-            instrumental: false,
-            trackName: 'Wibble Song',
-            artistName: 'The Wibbles',
-            plainLyrics: null,
-            syncedLyrics: '[00:00.00]zorblat',
-          },
-        ]),
-      );
-    vi.stubGlobal('fetch', fetch);
-
-    const lyrics = await lrclib.fetch(query, new AbortController().signal);
-
-    expect(lyrics?.kind).toBe('synced');
-    expect(fetch).toHaveBeenCalledTimes(2);
-  });
-
-  it('rejects a search result more than five seconds from the query', async () => {
-    const fetch = vi
-      .fn()
-      .mockResolvedValueOnce(response({}, 404))
-      .mockResolvedValueOnce(
-        response([
-          {
-            id: 11,
-            duration: 130,
-            instrumental: false,
-            plainLyrics: 'zorblat',
-            syncedLyrics: null,
-          },
-        ]),
-      );
-    vi.stubGlobal('fetch', fetch);
-
-    await expect(lrclib.fetch(query, new AbortController().signal)).resolves.toBeNull();
-  });
-
-  it('returns null for a network rejection', async () => {
+  it('returns null for a network rejection without throwing', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
 
-    await expect(lrclib.fetch(query, new AbortController().signal)).resolves.toBeNull();
+    await expect(lrclib.fetch(query, signal())).resolves.toBeNull();
   });
 
-  it('returns null for an aborted request', async () => {
+  it('returns null when aborted, and passes the signal through', async () => {
     const controller = new AbortController();
     controller.abort();
     const fetch = vi.fn().mockRejectedValue(new DOMException('aborted', 'AbortError'));
@@ -140,145 +111,232 @@ describe('lrclib provider', () => {
       expect.objectContaining({ signal: controller.signal }),
     );
   });
+});
+
+describe('lrclib request hygiene', () => {
+  it('identifies the client with the headers the docs offer to browsers', async () => {
+    const calls = stubFetch(() => json(syncedRow));
+
+    await lrclib.fetch(query, signal());
+
+    // User-Agent is forbidden in fetch, so LRCLIB documents these two instead.
+    const headers = calls[0]?.init?.headers as Record<string, string>;
+    expect(headers['X-User-Agent']).toContain('LyriMusic');
+    expect(headers['Lrclib-Client']).toContain('LyriMusic');
+  });
+
+  it('never sends album_name, because a wrong album turns a hit into a 404', async () => {
+    const calls = stubFetch(() => json(syncedRow));
+
+    await lrclib.fetch(query, signal());
+
+    expect(calls[0]?.url.searchParams.has('album_name')).toBe(false);
+  });
 
   it('sends duration in rounded seconds, not milliseconds', async () => {
-    const fetch = vi.fn().mockResolvedValue(
-      response({
-        id: 12,
-        duration: 123.4,
-        instrumental: false,
-        plainLyrics: 'zorblat',
-        syncedLyrics: null,
-      }),
-    );
-    vi.stubGlobal('fetch', fetch);
+    const calls = stubFetch(() => json(syncedRow));
 
-    await lrclib.fetch(query, new AbortController().signal);
+    await lrclib.fetch(query, signal());
 
-    const url = String(fetch.mock.calls[0]?.[0]);
-    expect(new URL(url).searchParams.get('duration')).toBe('123');
+    expect(durationOf(calls[0]!.url)).toBe('123');
+  });
+
+  it('omits duration entirely when it is zero, which the endpoint rejects with a 400', async () => {
+    const calls = stubFetch(() => json(syncedRow));
+
+    // What a track looks like before the video element knows its length.
+    await lrclib.fetch({ ...query, durationMs: 0 }, signal());
+
+    expect(calls[0]?.url.searchParams.has('duration')).toBe(false);
+  });
+
+  it('omits duration when it is beyond the documented maximum', async () => {
+    const calls = stubFetch(() => json(syncedRow));
+
+    await lrclib.fetch({ ...query, durationMs: 7_200_000 }, signal());
+
+    expect(calls[0]!.url.searchParams.has('duration')).toBe(false);
   });
 });
 
-/** A complete LRCLIB row, so a test only has to override the field it is about. */
-const syncedRow = {
-  id: 20,
-  duration: 123.4,
-  instrumental: false,
-  trackName: 'Wibble Song',
-  artistName: 'The Wibbles',
-  plainLyrics: null,
-  syncedLyrics: '[00:01.00]zorblat',
-};
-
-function urlOf(fetch: ReturnType<typeof vi.fn>, call: number): URL {
-  return new URL(String(fetch.mock.calls[call]?.[0]));
-}
-
-/**
- * The three findings that drive the lookup order, each pinned so they cannot be
- * quietly undone:
- *
- *   - album_name turns a hit into a 404 when it is wrong
- *   - a version suffix in track_name does too
- *   - only the free-text `q` search tolerates a suffix at all
- */
 describe('lrclib lookup strategy', () => {
-  it('never sends album_name, because a wrong album turns a hit into a 404', async () => {
-    const fetch = vi.fn().mockResolvedValue(response(syncedRow));
-    vi.stubGlobal('fetch', fetch);
+  it('costs one request when the precise attempt hits', async () => {
+    const calls = stubFetch(() => json(syncedRow));
 
-    await lrclib.fetch(query, new AbortController().signal);
+    await lrclib.fetch(query, signal());
 
-    expect(urlOf(fetch, 0).searchParams.has('album_name')).toBe(false);
-    expect(urlOf(fetch, 0).searchParams.get('artist_name')).toBe('The Wibbles');
+    expect(calls).toHaveLength(1);
+    expect(durationOf(calls[0]!.url)).toBe('123');
   });
 
-  it('retries the exact lookup on a looser title before resorting to search', async () => {
-    const fetch = vi
-      .fn()
-      .mockResolvedValueOnce(response({}, 404))
-      .mockResolvedValueOnce(response(syncedRow));
-    vi.stubGlobal('fetch', fetch);
+  it('retries the exact lookup WITHOUT duration after a 404', async () => {
+    // This is the attempt that rescues the common miss: LRCLIB matches duration
+    // within ±2 s of its own record, and a YouTube track often differs by more.
+    const calls = stubFetch((url) =>
+      url.searchParams.has('duration') ? notFound() : json(syncedRow),
+    );
+
+    const lyrics = await lrclib.fetch(query, signal());
+
+    expect(lyrics?.kind).toBe('synced');
+    expect(calls).toHaveLength(2);
+    expect(durationOf(calls[0]!.url)).toBe('123');
+    expect(durationOf(calls[1]!.url)).toBeNull();
+  });
+
+  it('retries on a looser title when the title carries a version suffix', async () => {
+    const calls = stubFetch((url) =>
+      url.searchParams.get('track_name') === 'Wibble Song' ? json(syncedRow) : notFound(),
+    );
 
     const lyrics = await lrclib.fetch(
       { ...query, title: 'Wibble Song (Remastered 2011)' },
-      new AbortController().signal,
+      signal(),
     );
 
     expect(lyrics?.kind).toBe('synced');
-    expect(urlOf(fetch, 0).searchParams.get('track_name')).toBe('Wibble Song (Remastered 2011)');
-    expect(urlOf(fetch, 1).searchParams.get('track_name')).toBe('Wibble Song');
+    expect(calls[0]!.url.searchParams.get('track_name')).toBe('Wibble Song (Remastered 2011)');
+    expect(calls[calls.length - 1]!.url.searchParams.get('track_name')).toBe('Wibble Song');
   });
 
-  it('falls back to the free-text search, the only form that survives a suffix', async () => {
-    const fetch = vi
-      .fn()
-      .mockResolvedValueOnce(response({}, 404))
-      .mockResolvedValueOnce(response([syncedRow]));
-    vi.stubGlobal('fetch', fetch);
+  it('falls back to the free-text search, carrying artist and title as q', async () => {
+    const calls = stubFetch((url) =>
+      url.pathname === '/api/search' ? json([syncedRow]) : notFound(),
+    );
 
-    const lyrics = await lrclib.fetch(query, new AbortController().signal);
+    const lyrics = await lrclib.fetch(query, signal());
 
     expect(lyrics?.kind).toBe('synced');
-    expect(urlOf(fetch, 1).pathname).toBe('/api/search');
-    expect(urlOf(fetch, 1).searchParams.get('q')).toBe('The Wibbles Wibble Song');
+    expect(calls[calls.length - 1]!.url.searchParams.get('q')).toBe('The Wibbles Wibble Song');
   });
 
-  it('costs one request when the exact lookup hits, which is the common case', async () => {
-    const fetch = vi.fn().mockResolvedValue(response(syncedRow));
-    vi.stubGlobal('fetch', fetch);
+  it('does not ask LRCLIB at all, beyond the search, when everything else missed', async () => {
+    const calls = stubFetch((url) => (url.pathname === '/api/search' ? json([]) : notFound()));
 
-    await lrclib.fetch(query, new AbortController().signal);
-
-    expect(fetch).toHaveBeenCalledTimes(1);
+    await expect(lrclib.fetch(query, signal())).resolves.toBeNull();
+    // Two exact attempts, a search, and nothing more.
+    expect(calls).toHaveLength(3);
   });
 
   it('rejects a free-text candidate that shares no name with the query', async () => {
-    const fetch = vi
-      .fn()
-      .mockResolvedValueOnce(response({}, 404))
-      .mockResolvedValueOnce(
-        response([{ ...syncedRow, trackName: 'Something Else', artistName: 'Another Band' }]),
-      );
-    vi.stubGlobal('fetch', fetch);
+    stubFetch((url) =>
+      url.pathname === '/api/search'
+        ? json([{ ...syncedRow, trackName: 'Something Else', artistName: 'Another Band' }])
+        : notFound(),
+    );
 
-    await expect(lrclib.fetch(query, new AbortController().signal)).resolves.toBeNull();
+    await expect(lrclib.fetch(query, signal())).resolves.toBeNull();
   });
 
-  it('accepts a name match even when the other side is decorated', async () => {
-    const fetch = vi
-      .fn()
-      .mockResolvedValueOnce(response({}, 404))
-      .mockResolvedValueOnce(
-        response([{ ...syncedRow, trackName: 'Wibble Song;Wibble Song' }]),
-      );
-    vi.stubGlobal('fetch', fetch);
+  it('accepts a free-text candidate whose name is decorated by the provider', async () => {
+    stubFetch((url) =>
+      url.pathname === '/api/search'
+        ? json([{ ...syncedRow, trackName: 'Wibble Song;Wibble Song' }])
+        : notFound(),
+    );
 
-    await expect(lrclib.fetch(query, new AbortController().signal)).resolves.not.toBeNull();
+    await expect(lrclib.fetch(query, signal())).resolves.not.toBeNull();
   });
 
-  it('scales the duration window with the track rather than fixing it at five seconds', async () => {
-    const fetch = vi
-      .fn()
-      .mockResolvedValueOnce(response({}, 404))
-      .mockResolvedValueOnce(response([{ ...syncedRow, duration: 615 }])); // 15 s off
-    vi.stubGlobal('fetch', fetch);
+  it('scales the free-text duration window with the track length', async () => {
+    stubFetch((url) =>
+      url.pathname === '/api/search' ? json([{ ...syncedRow, duration: 615 }]) : notFound(),
+    );
 
-    const tenMinutes = { ...query, durationMs: 600_000 };
-
-    await expect(lrclib.fetch(tenMinutes, new AbortController().signal)).resolves.not.toBeNull();
+    // Ten minutes: a 15 s difference is within the window.
+    await expect(
+      lrclib.fetch({ ...query, durationMs: 600_000 }, signal()),
+    ).resolves.not.toBeNull();
   });
 
   it('still rejects that same offset on a short track, where it is most of a verse', async () => {
-    const fetch = vi
-      .fn()
-      .mockResolvedValueOnce(response({}, 404))
-      .mockResolvedValueOnce(response([{ ...syncedRow, duration: 135 }])); // 15 s off
-    vi.stubGlobal('fetch', fetch);
+    stubFetch((url) =>
+      url.pathname === '/api/search' ? json([{ ...syncedRow, duration: 135 }]) : notFound(),
+    );
 
-    const twoMinutes = { ...query, durationMs: 120_000 };
+    await expect(lrclib.fetch({ ...query, durationMs: 120_000 }, signal())).resolves.toBeNull();
+  });
+});
 
-    await expect(lrclib.fetch(twoMinutes, new AbortController().signal)).resolves.toBeNull();
+/**
+ * LRCLIB is explicit that a 429 must be honoured rather than retried past, and
+ * that ignoring it can earn a temporary ban.
+ *
+ * Fake timers are used so the deadline can be inspected without waiting for it.
+ * The fake system time is far in the past, so the moment real timers are
+ * restored every deadline is already behind us and the next test starts clean.
+ */
+describe('lrclib rate limiting', () => {
+  /**
+   * The block deadline is module state, because it belongs to the connection
+   * rather than to one lookup. Each test therefore starts at a system time past
+   * anything a previous test could have set, so no test inherits another's wait.
+   */
+  let fakeNow = 1_000_000;
+
+  beforeEach(() => {
+    fakeNow += 1_000_000;
+    vi.useFakeTimers();
+    vi.setSystemTime(fakeNow);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('stops the whole lookup on a 429 and records the wait it was given', async () => {
+    const calls = stubFetch(() => json({ code: 429 }, 429, { 'Retry-After': '30' }));
+
+    await expect(lrclib.fetch(query, signal())).resolves.toBeNull();
+
+    // One request, not four: the server said wait, so nothing else is asked.
+    expect(calls).toHaveLength(1);
+    expect(retryAfterRemainingMs(Date.now())).toBe(30_000);
+  });
+
+  it('asks nothing at all while the wait is still pending', async () => {
+    stubFetch(() => json({ code: 429 }, 429, { 'Retry-After': '30' }));
+    await lrclib.fetch(query, signal());
+
+    const second = stubFetch(() => json(syncedRow));
+    await expect(lrclib.fetch(query, signal())).resolves.toBeNull();
+
+    expect(second).toHaveLength(0);
+  });
+
+  it('asks again once the wait has passed', async () => {
+    stubFetch(() => json({ code: 429 }, 429, { 'Retry-After': '30' }));
+    await lrclib.fetch(query, signal());
+
+    vi.setSystemTime(fakeNow + 31_000);
+
+    const calls = stubFetch(() => json(syncedRow));
+    await expect(lrclib.fetch(query, signal())).resolves.not.toBeNull();
+    expect(calls.length).toBeGreaterThan(0);
+  });
+
+  it('uses a default backoff when the header is missing, rather than none', async () => {
+    const calls = stubFetch(() => json({ code: 429 }, 429));
+
+    await lrclib.fetch(query, signal());
+
+    expect(calls).toHaveLength(1);
+    expect(retryAfterRemainingMs(Date.now())).toBeGreaterThan(0);
+  });
+
+  it('ignores a nonsense Retry-After instead of trusting it', async () => {
+    stubFetch(() => json({ code: 429 }, 429, { 'Retry-After': 'soon' }));
+
+    await lrclib.fetch(query, signal());
+
+    expect(retryAfterRemainingMs(Date.now())).toBeGreaterThan(0);
+  });
+
+  it('does not treat a 404 as a reason to hold off', async () => {
+    stubFetch(() => notFound());
+
+    await lrclib.fetch(query, signal());
+
+    expect(retryAfterRemainingMs(Date.now())).toBe(0);
   });
 });

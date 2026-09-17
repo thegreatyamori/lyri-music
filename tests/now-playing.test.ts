@@ -79,14 +79,27 @@ describe('firstAvailable', () => {
     expect(changes).toEqual([track('one')]);
   });
 
-  it('does not report a duration-only update for the same video', () => {
+  it('reports a duration arriving for the same video, so the lookup can run again', () => {
+    // The title and artist are known before the video element knows its length,
+    // so the first lookup goes out without a duration. If this update were
+    // suppressed, the panel would never ask again for that track.
     const source = fakeSource(track('one'));
     const changes: Array<TrackMetadata | null> = [];
 
     firstAvailable([source.source]).watch((value) => changes.push(value));
     source.emit(track('one', 999));
 
-    expect(changes).toEqual([track('one')]);
+    expect(changes).toEqual([track('one'), track('one', 999)]);
+  });
+
+  it('does not report a re-report of the same video and the same duration', () => {
+    const source = fakeSource(track('one', 999));
+    const changes: Array<TrackMetadata | null> = [];
+
+    firstAvailable([source.source]).watch((value) => changes.push(value));
+    source.emit(track('one', 999));
+
+    expect(changes).toEqual([track('one', 999)]);
   });
 
   it('reports a video change and a track-to-null transition', () => {

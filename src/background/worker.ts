@@ -72,7 +72,19 @@ async function handle(request: Request): Promise<Response> {
       const result = await lookup(toQuery(request.track), {
         providers: await enabledProviders(),
         cache,
+        force: request.force,
       });
+
+      // One line per lookup, so that "the panel is empty" can be told apart
+      // from "the lookup never ran" without a debugger.
+      console.info('[LyriMusic] lookup', {
+        videoId: request.track.videoId,
+        force: request.force,
+        found: result !== null,
+        source: result?.sourceId ?? null,
+        lines: result?.lyrics.lines.length ?? 0,
+      });
+
       return {
         type: 'lyrics/answer',
         videoId: request.track.videoId,
