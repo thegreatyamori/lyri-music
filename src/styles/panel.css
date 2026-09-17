@@ -224,6 +224,7 @@
    -------------------------------------------------------------------------- */
 
 body.lyrimusic-pip {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -233,6 +234,44 @@ body.lyrimusic-pip {
   color: var(--lyri-on-surface);
   font-family: var(--lyri-font);
   font-size: 16px;
+}
+
+/**
+ * The PiP window's only control.
+ *
+ * Recessive rather than hidden: these lyrics are meant to be read from a
+ * distance, so a permanent button in the corner would be noise — but a control
+ * that only exists on hover is one you have to remember, and this window has no
+ * header to carry it. It sits faint and comes up to full on hover or focus.
+ */
+.lyrimusic-pip__controls {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  display: flex;
+  gap: 4px;
+  opacity: 0.4;
+  transition: opacity var(--lyri-motion);
+}
+
+body.lyrimusic-pip:hover .lyrimusic-pip__controls,
+.lyrimusic-pip__controls:focus-within {
+  opacity: 1;
+}
+
+.lyrimusic-pip__controls .lyrimusic__icon-button {
+  width: 30px;
+  height: 30px;
+  background: var(--lyri-surface-container);
+  border: 1px solid var(--lyri-outline);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.lyrimusic-pip__controls .lyrimusic__icon-button:hover {
+  background: var(--lyri-surface-high);
+  color: var(--lyri-on-surface);
 }
 
 body.lyrimusic-pip .lyrimusic__lyrics {

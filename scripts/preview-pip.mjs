@@ -78,6 +78,14 @@ ${tokens}
 ${panel}
   </style></head>
   <body class="lyrimusic-pip">
+    <div class="lyrimusic-pip__controls">
+      <button class="lyrimusic__icon-button" type="button" title="Ask the sources again" aria-label="Ask the sources again">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M20.5 12a8.5 8.5 0 1 1-2.6-6.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+          <path d="M20.5 3.5v5h-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </button>
+    </div>
     <div class="lyrimusic__lyrics">
 ${lines}
     </div>

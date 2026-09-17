@@ -213,9 +213,28 @@ export function Overlay() {
 
     // The same component, a second time, against the same signals: the two
     // presentations cannot drift because there is only one source of truth.
+    // The refresh control is repeated here because the PiP window has no header
+    // to put it in, and a stale empty panel you cannot retry from is the exact
+    // trap the panel's own hide button used to be.
     const dispose = render(
       () => (
-        <LyricsList state={state} index={index} fraction={fraction} clampHeight={false} />
+        <>
+          <div class="lyrimusic-pip__controls">
+            <button
+              class="lyrimusic__icon-button"
+              classList={{ 'is-busy': refreshing() }}
+              type="button"
+              title="Ask the sources again"
+              aria-label="Ask the sources again"
+              disabled={refreshing() || track() === null}
+              onClick={() => void refresh()}
+            >
+              <RefreshIcon />
+            </button>
+          </div>
+
+          <LyricsList state={state} index={index} fraction={fraction} clampHeight={false} />
+        </>
       ),
       mount,
     );
@@ -247,21 +266,7 @@ export function Overlay() {
             disabled={refreshing() || track() === null}
             onClick={() => void refresh()}
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path
-                d="M20.5 12a8.5 8.5 0 1 1-2.6-6.1"
-                stroke="currentColor"
-                stroke-width="1.8"
-                stroke-linecap="round"
-              />
-              <path
-                d="M20.5 3.5v5h-5"
-                stroke="currentColor"
-                stroke-width="1.8"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
+            <RefreshIcon />
           </button>
 
           <button
@@ -305,6 +310,30 @@ export function Overlay() {
         </footer>
       </section>
     </Show>
+  );
+}
+
+/**
+ * The refresh glyph, shared by the panel and the PiP window so the two cannot
+ * drift into different-looking buttons for the same action.
+ */
+function RefreshIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M20.5 12a8.5 8.5 0 1 1-2.6-6.1"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+      />
+      <path
+        d="M20.5 3.5v5h-5"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+    </svg>
   );
 }
 
