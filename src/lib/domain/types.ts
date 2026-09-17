@@ -5,8 +5,17 @@
  * they can be constructed in a test without a DOM and without `chrome`.
  */
 
-/** A source of lyrics. One module per id, registered in `lib/providers`. */
-export type SourceId = 'lrclib' | 'lyricsovh' | 'kugou' | 'netease';
+/**
+ * A source of lyrics. One module per id, registered in `lib/providers`.
+ *
+ * This is the vocabulary, not the set of live sources: `genius` is named here
+ * because `LyricsProvider.id` has to be able to type it, while `genius` is
+ * deliberately absent from the registry in `lib/providers/index.ts` and from
+ * the manifest's `host_permissions`. Nothing iterates this union to build the
+ * UI — the popup iterates the registry — so naming a source here starts nothing.
+ * See the note at the top of `lib/providers/genius.ts`.
+ */
+export type SourceId = 'lrclib' | 'lyricsovh' | 'kugou' | 'netease' | 'genius';
 
 /**
  * Whether a set of lines carries timing.

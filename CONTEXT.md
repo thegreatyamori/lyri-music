@@ -102,6 +102,18 @@ pnpm test        # vitest, node environment
 
 ## Out of scope for v1
 
-Word-level (syllable) timing, Genius, Musixmatch, reusing YouTube's own lyrics
-endpoint, UI translations, any server-side component, publishing to the Chrome
-Web Store.
+Word-level (syllable) timing, Musixmatch, reusing YouTube's own lyrics endpoint,
+UI translations, any server-side component, publishing to the Chrome Web Store.
+
+**Genius is implemented but deliberately not wired up.** `lib/html-text.ts` and
+`lib/providers/genius.ts` exist and are tested, but `genius` is absent from the
+registry in `lib/providers/index.ts` and `genius.com` is absent from the
+manifest's `host_permissions` — so it cannot run and does not enter the bundle.
+It IS named in `SourceId`, because that union is the vocabulary rather than the
+wiring, and `LyricsProvider.id` has to be able to type a source that exists but
+is not registered. The popup iterates the registry, not the union, so naming it
+there starts nothing.
+
+Switching it on takes two edits, both required, listed at the top of
+`genius.ts`. Do not add it to the registry without the host permission: it would
+appear in the settings list having never worked.
