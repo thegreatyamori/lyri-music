@@ -1,5 +1,24 @@
 import type { NowPlayingSource, TrackMetadata } from './domain/types';
 
+/**
+ * An id for a track the page has not given one for.
+ *
+ * None of the four providers needs a video id: every one of them is asked with a
+ * title and an artist. The id exists to key the cache, so a stable stand-in
+ * derived from the names is enough — and it is what keeps the panel working when
+ * YouTube Music is playing something it will not name in the url, which it does
+ * the moment its player is minimised.
+ *
+ * Prefixed, so a derived id can never be mistaken for a real one.
+ */
+export function derivedVideoId(title: string, artist: string): string | null {
+  const parts = [title, artist]
+    .map((part) => part.trim().toLowerCase())
+    .filter((part) => part !== '');
+
+  return parts.length === 0 ? null : `derived:${parts.join('|')}`;
+}
+
 function safeRead(source: NowPlayingSource): TrackMetadata | null {
   try {
     return source.read();

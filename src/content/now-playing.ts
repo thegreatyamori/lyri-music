@@ -1,5 +1,5 @@
 import type { NowPlayingSource, TrackMetadata } from '../lib/domain/types';
-import { firstAvailable } from '../lib/now-playing';
+import { derivedVideoId, firstAvailable } from '../lib/now-playing';
 
 /**
  * YouTube Music's markup.
@@ -13,6 +13,8 @@ import { firstAvailable } from '../lib/now-playing';
 export const NOW_PLAYING_SELECTORS = {
   title: ['ytmusic-player-bar .title'],
   byline: ['ytmusic-player-bar .byline'],
+  /** The player bar links to whatever is playing, and outlives the url. */
+  watchLink: ['ytmusic-player-bar a[href*="watch?v="]'],
 } as const;
 
 /**
@@ -39,13 +41,42 @@ function readBylineParts(): readonly string[] {
     .filter((part) => part !== '');
 }
 
-function readVideoId(): string | null {
+function videoIdFromUrl(): string | null {
   try {
     return new URL(location.href).searchParams.get('v');
   } catch {
     // A malformed href is not worth an exception in a lyrics panel.
     return null;
   }
+}
+
+function videoIdFromPlayerBar(): string | null {
+  const anchor = document.querySelector(NOW_PLAYING_SELECTORS.watchLink[0]);
+  const href = anchor?.getAttribute('href');
+  if (href === undefined || href === null) return null;
+
+  try {
+    return new URL(href, location.origin).searchParams.get('v');
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The id of what is playing, and the reason this is not one line.
+ *
+ * YouTube Music keeps playing when its full-screen player is collapsed, and
+ * collapsing it navigates away from `/watch?v=…` — the id leaves the url while
+ * the music carries on. Reading the url alone therefore reported "nothing is
+ * playing" the moment the player was minimised, and the panel dropped the lyrics
+ * of a song that was still audible.
+ *
+ * So three sources, in order of trust: the url, then the player bar's own link
+ * to the current track, then a stand-in derived from the names. Only if all
+ * three fail is there genuinely nothing to report.
+ */
+function readVideoId(title: string, artist: string): string | null {
+  return videoIdFromUrl() ?? videoIdFromPlayerBar() ?? derivedVideoId(title, artist);
 }
 
 function readVideo(): HTMLVideoElement | null {
@@ -75,8 +106,10 @@ function readPositionMs(): number | null {
  */
 function readMediaSession(): TrackMetadata | null {
   const metadata = navigator.mediaSession?.metadata;
-  const videoId = readVideoId();
-  if (metadata == null || videoId === null || metadata.title.trim() === '') return null;
+  if (metadata == null || metadata.title.trim() === '') return null;
+
+  const videoId = readVideoId(metadata.title, metadata.artist);
+  if (videoId === null) return null;
 
   return {
     videoId,
@@ -104,15 +137,18 @@ export function createMediaSessionSource(): NowPlayingSource {
 }
 
 function readDom(): TrackMetadata | null {
-  const videoId = readVideoId();
   const title = readDomText(NOW_PLAYING_SELECTORS.title);
-  if (videoId === null || title === null) return null;
+  if (title === null) return null;
 
   const byline = readBylineParts();
+  const artist = byline[0] ?? '';
+  const videoId = readVideoId(title, artist);
+  if (videoId === null) return null;
+
   return {
     videoId,
     title,
-    artist: byline[0] ?? '',
+    artist,
     album: byline[1] ?? null,
     durationMs: readDurationMs(),
   };

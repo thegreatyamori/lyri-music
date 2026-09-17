@@ -145,21 +145,24 @@ export function Overlay() {
       setTrack(next);
       if (pending !== undefined) clearTimeout(pending);
 
-      if (next === null) {
-        requestToken += 1;
-        setState({ kind: 'idle' });
-        return;
-      }
-
-      // Wait for the metadata to settle before asking.
+      // Wait for the metadata to settle before acting on it, whichever way it
+      // moved.
       //
-      // The pieces do not arrive together, and they do not arrive in order: the
-      // url knows the new track before the page has finished reporting its name,
-      // so asking the moment the id changes asks about the previous song. A short
-      // wait collapses the burst into one lookup made with the final values, and
-      // the identity comparison upstream keeps re-arming this until it is right.
+      // The pieces do not arrive together and they do not arrive in order: the
+      // url knows the new track before the page knows its name, and navigating —
+      // collapsing the player, opening the library — can blank the metadata for
+      // a moment while the music carries on. Acting on the instant would either
+      // ask about the previous song or abandon a song that is still playing, and
+      // both look like losing the lyrics.
       pending = setTimeout(() => {
         pending = undefined;
+
+        if (next === null) {
+          requestToken += 1;
+          setState({ kind: 'idle' });
+          return;
+        }
+
         void requestLyrics(next, false);
       }, METADATA_SETTLE_MS);
     });

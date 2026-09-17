@@ -126,7 +126,7 @@ way round, and getting one backwards cost real misses.
   honour it; ignoring it can earn a temporary ban. Honoured through a
   module-level deadline, so one 429 stops every provider's next request too.
 
-**When the metadata arrives**
+**When the metadata arrives, and where it comes from**
 
 - A track's title and artist are known before the `<video>` element knows its
   length. Two rules depend on that ordering, and both are load-bearing: the
@@ -134,6 +134,22 @@ way round, and getting one backwards cost real misses.
   change worth reporting, and the Lookup refuses to remember a miss that was made
   without a duration. Without them the first lookup runs against an incomplete
   question, and the panel stays wordless until the cached miss expires.
+- **The video id is not in the url as soon as the player is minimised.** YouTube
+  Music keeps playing when its full-screen player is collapsed, and collapsing it
+  navigates away from `/watch?v=…`. An id read from the url alone therefore
+  reports "nothing is playing" for a song that is still audible. The id has three
+  sources, in order of trust: the url, the player bar's own link to the current
+  track, then a stand-in derived from the names — and none of the four providers
+  needs a video id at all, since it only ever keys the cache.
+- The identity of a track is the **whole image** — id, title, artist, album — not
+  the id. A title that changes for the same video is a correction worth acting
+  on, not a re-report to swallow: after a song change the url knows the new id
+  before the page knows the new name. See `isNoChange`.
+- Because the pieces arrive out of order, the panel waits a short settle delay
+  before acting, in **both** directions: a burst of updates collapses into one
+  lookup with final values, and a momentary blank does not abandon a track that is
+  still playing.
+
 
 ## Out of scope for v1
 
