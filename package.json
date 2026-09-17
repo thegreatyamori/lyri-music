@@ -1,0 +1,29 @@
+{
+  "name": "lyri-music",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Lyrics for YouTube Music, from public community databases",
+  "license": "MIT",
+  "scripts": {
+    "build": "pnpm run typecheck && vite build && vite build -c vite.content.config.ts",
+    "dev": "vite build --watch & vite build -c vite.content.config.ts --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check:no-lyrics": "node scripts/check-no-lyrics.mjs",
+    "verify": "pnpm run check:no-lyrics && pnpm run typecheck && pnpm run test && pnpm run build",
+    "package": "pnpm run verify && node scripts/package.mjs"
+  },
+  "dependencies": {
+    "solid-js": "^1.9.15"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.3.0",
+    "@types/node": "^22.20.3",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.0",
+    "vite-plugin-solid": "^2.11.14",
+    "vitest": "^5.0.1"
+  }
+}

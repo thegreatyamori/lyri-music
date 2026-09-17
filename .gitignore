@@ -1,0 +1,15 @@
+node_modules/
+dist/
+*.zip
+
+# Never commit lyrics. See CONTRIBUTING.md and scripts/check-no-lyrics.mjs.
+*.lrc
+*.lrcx
+*.ttml
+
+# Signing material, if an extension key is ever added.
+.keys/
+keystore.properties
+
+.DS_Store
+*.log

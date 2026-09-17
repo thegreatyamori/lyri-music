@@ -1,0 +1,48 @@
+# NOTICE
+
+## What this project owes to others
+
+LyriMusic is an independent implementation. No source code was copied into it
+from any other lyrics client, and no lyrics are distributed by it.
+
+The design was informed by studying how other clients solve the same problem —
+in particular [BitChord](https://github.com/kushagrasinghx/BitChord) (GPL-3.0),
+whose provider set and lookup strategy were read as prior art. BitChord is
+licensed under the GPL-3.0; **no BitChord code, in any form, is included here**.
+The architecture is deliberately different (a browser extension in TypeScript
+against a structured `LyricsProvider` interface, rather than an Android client),
+and the parsers, the lookup, and the clock are original. This project is MIT
+licensed and must stay free of GPL-derived code.
+
+The in-page panel exists in the same problem space as
+[Better Lyrics](https://github.com/better-lyrics/better-lyrics) and as the
+"Lyrics for YouTube Music" extension by *msj*. Their *behaviour* was observed
+from the outside; their code was not read for this work and none of it is used.
+
+## Third-party services
+
+Queries are sent, from the user's own browser and on the user's own connection,
+to third-party lyrics databases. This project has no relationship with any of
+them, hosts none of their content, and proxies none of their traffic:
+
+- [LRCLIB](https://lrclib.net) — open, documented API
+- [lyrics.ovh](https://lyrics.ovh) — open API
+- [KuGou](https://www.kugou.com) — unofficial
+- [NetEase Cloud Music](https://music.163.com) — unofficial
+
+The KuGou and NetEase routes are unofficial and are **disabled by default**. A
+user who enables them does so on their own behalf, under those services' terms.
+
+## Trademarks
+
+"YouTube" and "YouTube Music" are trademarks of Google LLC. This project is not
+affiliated with, endorsed by, or connected to Google or YouTube. The marks are
+used nominatively, only to say what this software interoperates with. The name
+and icon of this project are its own and resemble no Google mark.
+
+## Lyrics
+
+Song lyrics are the property of their respective rights holders. This project
+does not host, bundle, cache centrally, or redistribute them. Each user's
+browser fetches them at runtime and keeps them, at most, in that browser's own
+local storage, on that user's device.

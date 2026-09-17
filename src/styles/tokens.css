@@ -1,0 +1,5 @@
+:root,
+:host {
+  --lyri-surface: rgb(28 27 31 / 92%);
+  --lyri-on-surface: rgb(230 225 229);
+}
