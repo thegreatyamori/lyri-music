@@ -216,16 +216,73 @@
   cursor: pointer;
 }
 
-/* The PiP window is a normal document, so it gets a variant of the same tree. */
+/* --- The PiP window -------------------------------------------------------
+   A normal document rather than a shadow root, and a different reading
+   situation: no header, no footer, a whole window, and usually a glance rather
+   than a stare. So the same tree gets its own treatment — centred, larger, and
+   centred vertically when the lyric is shorter than the window.
+   -------------------------------------------------------------------------- */
+
 body.lyrimusic-pip {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
   margin: 0;
+  overflow: hidden;
   background: var(--lyri-surface-solid);
   color: var(--lyri-on-surface);
   font-family: var(--lyri-font);
-  font-size: 13px;
+  font-size: 16px;
 }
 
 body.lyrimusic-pip .lyrimusic__lyrics {
+  flex: 1;
+  height: auto;
   max-height: none;
-  height: calc(100vh - 96px);
+  padding: 8px 22px;
+  display: flex;
+  flex-direction: column;
+  /* `safe` matters: with a centred flex column that scrolls, plain `center`
+     puts the first lines out of reach once the content overflows. */
+  justify-content: safe center;
+  text-align: center;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 44px,
+    #000 calc(100% - 44px),
+    transparent 100%
+  );
 }
+
+body.lyrimusic-pip .lyrimusic__line {
+  padding: 8px 10px;
+  font-size: 17px;
+  line-height: 1.35;
+  border-radius: var(--lyri-radius-md);
+}
+
+body.lyrimusic-pip .lyrimusic__line.is-current {
+  font-size: 19px;
+}
+
+/* A centred line needs a centred progress mark, not a full-width rule. */
+body.lyrimusic-pip .lyrimusic__line.is-current::after {
+  left: 50%;
+  width: calc(132px * var(--lyri-progress, 0));
+  transform: translateX(-50%);
+}
+
+body.lyrimusic-pip .lyrimusic__line.is-plain {
+  text-align: center;
+}
+
+body.lyrimusic-pip .lyrimusic__state {
+  flex: 1;
+  display: grid;
+  place-content: center;
+  padding: 0 24px;
+  text-align: center;
+  font-size: 14px;
+}
+
