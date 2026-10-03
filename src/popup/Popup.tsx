@@ -1,6 +1,7 @@
 import { For, Show, createSignal, onMount } from 'solid-js';
 import type { SourceId } from '../lib/domain/types';
 import { readPanelVisible, writePanelVisible } from '../lib/panel-visibility';
+import { readPanelOpacity, writePanelOpacity } from '../lib/panel-opacity';
 import { PROVIDERS, defaultProviders } from '../lib/providers';
 
 /**
@@ -18,9 +19,11 @@ export function Popup() {
   );
   const [loaded, setLoaded] = createSignal(false);
   const [panelVisible, setPanelVisible] = createSignal(true);
+  const [opacity, setOpacity] = createSignal(1);
 
   onMount(() => {
     void readPanelVisible().then(setPanelVisible);
+    void readPanelOpacity().then(setOpacity);
 
     void chrome.runtime
       .sendMessage({ type: 'settings/get' })
@@ -36,6 +39,14 @@ export function Popup() {
     const next = !panelVisible();
     setPanelVisible(next);
     await writePanelVisible(next);
+  }
+
+  // Live: every tick of the slider writes, so the panel follows the thumb.
+  // Storage is local and synchronous enough that a dropped write would show as
+  // one wrong frame, not as a setting that did not stick.
+  async function changeOpacity(next: number): Promise<void> {
+    setOpacity(next);
+    await writePanelOpacity(next);
   }
 
   async function toggle(id: SourceId): Promise<void> {
@@ -58,6 +69,24 @@ export function Popup() {
             It lives inside the YouTube Music tab, bottom-right. Reload that tab after changing
             this.
           </span>
+        </span>
+      </label>
+
+      <label class="popup__opacity">
+        <span class="popup__opacity-head">
+          Panel transparency
+          <span class="popup__opacity-value">{Math.round(opacity() * 100)}%</span>
+        </span>
+        <input
+          type="range"
+          min="20"
+          max="100"
+          step="5"
+          value={String(Math.round(opacity() * 100))}
+          onInput={(event) => void changeOpacity(Number(event.currentTarget.value) / 100)}
+        />
+        <span class="popup__panel-hint">
+          How much of the page shows through the panel. Applied live, no reload needed.
         </span>
       </label>
 
