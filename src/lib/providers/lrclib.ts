@@ -14,7 +14,7 @@ import type { LyricsProvider } from './provider';
  * alternatives; both are sent, because either one alone is enough and sending
  * both costs nothing.
  */
-const CLIENT_ID = 'LyriMusic v0.1.4 (https://github.com/thegreatyamori/lyri-music)';
+const CLIENT_ID = 'LyriMusic v0.1.5 (https://github.com/thegreatyamori/lyri-music)';
 const CLIENT_HEADERS: Readonly<Record<string, string>> = {
   'X-User-Agent': CLIENT_ID,
   'Lrclib-Client': CLIENT_ID,
