@@ -2,6 +2,10 @@ node_modules/
 dist/
 *.zip
 
+# Unpacked releases. One of these (lyri-music-0.1.0/) was committed once;
+# the zip is ignored, so the folder it becomes after unzipping must be too.
+lyri-music-[0-9]*/
+
 # Never commit lyrics. See CONTRIBUTING.md and scripts/check-no-lyrics.mjs.
 *.lrc
 *.lrcx
