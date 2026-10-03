@@ -41,6 +41,6 @@ jobs:
       # releaser's machine happened to have.
       - run: pnpm package
 
-      - run: gh release create "$GITHUB_REF_NAME" lyri-music-*.zip --verify-tag --generate-notes
+      - run: gh release create "$GITHUB_REF_NAME" dist/lyri-music-*.zip --verify-tag --generate-notes
         env:
           GH_TOKEN: ${{ github.token }}

@@ -17,7 +17,15 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { cpSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  cpSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -26,7 +34,10 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const DIST = join(ROOT, 'dist');
 const STAGE = join(tmpdir(), 'lyri-music-package');
 const { version } = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
-const archive = join(ROOT, `lyri-music-${version}.zip`);
+// Inside `dist/` so the build output and the artifact sit together and the
+// whole folder stays ignored — a zip at the repository root is a file someone
+// can commit by accident.
+const archive = join(DIST, `lyri-music-${version}.zip`);
 
 const INSTALL = `LyriMusic ${version}
 ${'='.repeat(`LyriMusic ${version}`.length)}
@@ -93,6 +104,14 @@ its markup, detection can break until that is updated.
 
 rmSync(STAGE, { recursive: true, force: true });
 mkdirSync(STAGE, { recursive: true });
+
+// Stale zips live in `dist/` now, and the staging copy must not pick one up —
+// a previous run's zip inside the new zip is exactly the kind of thing that
+// ships unnoticed.
+for (const name of readdirSync(DIST)) {
+  if (/^lyri-music-.*\.zip$/.test(name)) rmSync(join(DIST, name));
+}
+
 cpSync(DIST, STAGE, { recursive: true });
 writeFileSync(join(STAGE, 'INSTALL.txt'), INSTALL);
 
@@ -102,7 +121,6 @@ for (const file of ['LICENSE', 'NOTICE']) {
   cpSync(join(ROOT, file), join(STAGE, file));
 }
 
-rmSync(archive, { force: true });
 execFileSync('zip', ['-rq', archive, '.', '-x', '*.map'], { cwd: STAGE, stdio: 'inherit' });
 rmSync(STAGE, { recursive: true, force: true });
 
