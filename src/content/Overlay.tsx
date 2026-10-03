@@ -272,7 +272,13 @@ export function Overlay() {
 
   return (
     <Show when={panelVisible()}>
-      <section class="lyrimusic" aria-label="Lyrics" style={{ opacity: String(opacity()) }}>
+      {/* The control moves the background's alpha, never the section's
+          opacity: fading the whole panel would fade the words with it. */}
+      <section
+        class="lyrimusic"
+        aria-label="Lyrics"
+        style={{ '--lyri-panel-alpha': `${Math.round(opacity() * 100)}%` }}
+      >
         <header class="lyrimusic__header">
           <div class="lyrimusic__heading">
             <p class="lyrimusic__title">{track()?.title ?? 'LyriMusic'}</p>

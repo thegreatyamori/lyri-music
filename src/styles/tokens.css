@@ -15,7 +15,14 @@
 :host {
   color-scheme: dark;
 
-  --lyri-surface: rgb(20 18 24 / 78%);
+  /* The panel's background is two tokens, not one, because its transparency
+     is a user control: the colour is fixed, the alpha rides on
+     `--lyri-panel-alpha`, which the panel overrides from storage. Composing
+     them in `rgb()` at the use site is what lets that override reach the
+     background — a `--lyri-surface` with the alpha baked in would inherit
+     already resolved and ignore it. */
+  --lyri-surface-rgb: 20 18 24;
+  --lyri-panel-alpha: 78%;
   --lyri-surface-solid: rgb(20 18 24);
   --lyri-surface-container: rgb(33 30 38 / 86%);
   --lyri-surface-high: rgb(45 41 51 / 92%);

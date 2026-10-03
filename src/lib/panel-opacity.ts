@@ -1,13 +1,17 @@
 /**
- * How transparent the in-page panel is, from 0 (invisible) to 1 (opaque).
+ * How transparent the in-page panel's background is, from 0 to 1.
  *
  * Stored rather than kept in component state for the same reason as visibility:
  * the control lives in the popup, the effect lives in the panel, and they are
  * two documents. A subscriber on each side keeps them in step without either
  * one importing the other.
  *
+ * The value drives the background's alpha (`--lyri-panel-alpha`), not the
+ * section's `opacity` — fading the section fades the lyrics too, and a control
+ * for how much page shows through should not cost the words their contrast.
+ *
  * Clamped on every read and every change. The clamp is not cosmetic — below
- * ~0.2 the panel stops being a panel and becomes an ghost of one, and a value
+ * ~0.2 the panel stops being a panel and becomes a ghost of one, and a value
  * written by hand into storage should not be able to do that to the user.
  */
 
