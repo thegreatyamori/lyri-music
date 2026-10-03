@@ -1,0 +1,46 @@
+/**
+ * Builds the zip and publishes the release for every `v*` tag.
+ *
+ * The tag is pushed by `pnpm release`; this half runs on GitHub's runners, so
+ * publishing needs no token on anyone's machine — `GITHUB_TOKEN` is issued per
+ * job and can do nothing but write to this repository's releases.
+ */
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The whole history, so `--generate-notes` can compare against the
+          # previous tag and name what changed.
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Verify, build and zip in one go — the same `pnpm package` a person
+      # would run, so the artifact a user downloads cannot depend on what the
+      # releaser's machine happened to have.
+      - run: pnpm package
+
+      - run: gh release create "$GITHUB_REF_NAME" lyri-music-*.zip --verify-tag --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}
