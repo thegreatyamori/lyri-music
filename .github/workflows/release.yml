@@ -1,10 +1,8 @@
-/**
- * Builds the zip and publishes the release for every `v*` tag.
- *
- * The tag is pushed by `pnpm release`; this half runs on GitHub's runners, so
- * publishing needs no token on anyone's machine — `GITHUB_TOKEN` is issued per
- * job and can do nothing but write to this repository's releases.
- */
+# Builds the zip and publishes the release for every `v*` tag.
+#
+# The tag is pushed by `pnpm release`; this half runs on GitHub's runners, so
+# publishing needs no token on anyone's machine — `GITHUB_TOKEN` is issued per
+# job and can do nothing but write to this repository's releases.
 
 name: Release
 
